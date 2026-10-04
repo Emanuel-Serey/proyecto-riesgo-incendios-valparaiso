@@ -82,7 +82,7 @@ def procesar_dmc():
 
     completos = dmc.dropna(subset=["temperatura", "humedad", "viento"])
 
-    logger.info("DMC procesado: %s registros mensuales | Registros completos: %s.", len(dmc), len(completos))
+    logger.info("DMC procesado: %s registros mensuales | Registros con las 3 variables completas: %s.", len(dmc), len(completos))
     return dmc
 
 
