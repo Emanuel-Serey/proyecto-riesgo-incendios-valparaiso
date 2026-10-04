@@ -6,9 +6,10 @@ from limpieza_transformacion import (
     construir_panel_conaf,
     procesar_ide,
     obtener_cobertura_dominante,
-    procesar_dmc,
-    RUTA_IDE
+    procesar_dmc
 )
+
+from ingesta import cargar_ide
 
 from logger_config import obtener_logger
 
@@ -96,13 +97,12 @@ def obtener_estaciones_dmc():
 # Geometrías comunales
 
 def obtener_geometrias_comunas():
-    ide = gpd.read_file(RUTA_IDE)
+    ide = cargar_ide()
 
     comunas = ide[["NOM_COM", "geometry"]].copy()
     comunas = comunas.rename(columns={"NOM_COM": "comuna"})
     comunas["comuna"] = comunas["comuna"].astype(str).str.strip()
 
-    # Une los polígonos pertenecientes a una misma comuna
     comunas = comunas.dissolve(by="comuna", as_index=False)
 
     logger.info("Geometrías comunales generadas: %s comunas.", len(comunas))
