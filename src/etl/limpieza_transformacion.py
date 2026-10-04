@@ -1,15 +1,10 @@
-from pathlib import Path
 import pandas as pd
-import geopandas as gpd
 
+from ingesta import cargar_conaf, cargar_ide, cargar_estacion_dmc, CARPETAS_DMC, RUTA_IDE
 from logger_config import obtener_logger
 
 
 logger = obtener_logger("limpieza_transformacion", "limpieza_transformacion.log")
-
-RUTA_DMC = Path("data/raw/dmc")
-RUTA_IDE = Path("data/raw/ide/cobertura_vegetacion_valparaiso/cut_2001_2023_R05.shp")
-RUTA_CONAF = Path("data/raw/conaf/cobertura_incendios/II_FF.shp")
 
 
 # DMC
@@ -46,16 +41,8 @@ def unir_variables_dmc(humedad, temperatura, viento):
     return datos.merge(viento, on=["codigo_estacion", "periodo"], how="outer")
 
 
-def procesar_estacion_dmc(carpeta_estacion):
-    carpeta = Path(carpeta_estacion)
-
-    archivo_humedad = next(carpeta.glob("*Humedad*.csv"))
-    archivo_temperatura = next(carpeta.glob("*Temperatura*.csv"))
-    archivo_viento = next(carpeta.glob("*Viento*.csv"))
-
-    humedad = pd.read_csv(archivo_humedad, sep=";")
-    temperatura = pd.read_csv(archivo_temperatura, sep=";")
-    viento = pd.read_csv(archivo_viento, sep=";")
+def procesar_estacion_dmc(carpeta):
+    humedad, temperatura, viento = cargar_estacion_dmc(carpeta)
 
     humedad = agregar_periodo_mensual(limpiar_humedad(humedad), "humedad")
     temperatura = agregar_periodo_mensual(limpiar_temperatura(temperatura), "temperatura")
@@ -70,33 +57,28 @@ def procesar_estacion_dmc(carpeta_estacion):
 def procesar_dmc():
     logger.info("Inicio de limpieza y transformación DMC.")
 
-    carpetas = [
-        RUTA_DMC / "320019_san_felipe",
-        RUTA_DMC / "320041_torquemada",
-        RUTA_DMC / "330007_rodelillo",
-        RUTA_DMC / "330030_santo_domingo"
-    ]
-
-    estaciones = [procesar_estacion_dmc(carpeta) for carpeta in carpetas]
+    estaciones = [procesar_estacion_dmc(carpeta) for carpeta in CARPETAS_DMC]
     dmc = pd.concat(estaciones, ignore_index=True)
-
     completos = dmc.dropna(subset=["temperatura", "humedad", "viento"])
 
-    logger.info("DMC procesado: %s registros mensuales | Registros con las 3 variables completas: %s.", len(dmc), len(completos))
+    logger.info(
+        "DMC procesado: %s registros mensuales | Registros con las 3 variables completas: %s.",
+        len(dmc), len(completos)
+    )
+
     return dmc
 
 
 # IDE Chile
 
 def revisar_ide():
-    ide = gpd.read_file(RUTA_IDE)
+    ide = cargar_ide()
 
     print("\n--- REVISIÓN IDE CHILE ---")
 
-    columnas_relevantes = ["NOM_COM", "DES_USO_19", "DES_USO_21", "DES_USO_23"]
-
+    columnas = ["NOM_COM", "DES_USO_19", "DES_USO_21", "DES_USO_23"]
     print("\nColumnas seleccionadas:")
-    print(ide[columnas_relevantes].head(10))
+    print(ide[columnas].head(10))
 
     for columna in ["DES_USO_19", "DES_USO_21", "DES_USO_23"]:
         print(f"\nValores distintos de {columna}:")
@@ -116,7 +98,15 @@ def simplificar_cobertura(valor):
 def procesar_ide():
     logger.info("Inicio de transformación IDE Chile.")
 
-    ide = gpd.read_file(RUTA_IDE)
+    ide = cargar_ide()
+
+    if ide.crs is None:
+        raise ValueError("La capa IDE no tiene un CRS definido.")
+
+    if ide.crs.is_geographic:
+        crs_proyectado = ide.estimate_utm_crs()
+        logger.info("IDE reproyectado a %s para calcular superficies.", crs_proyectado)
+        ide = ide.to_crs(crs_proyectado)
 
     columnas_periodos = {
         "DES_USO_01": "2001",
@@ -133,11 +123,9 @@ def procesar_ide():
     for columna, anio in columnas_periodos.items():
         datos = ide[["NOM_COM", columna, "geometry"]].copy()
         datos = datos.rename(columns={"NOM_COM": "comuna", columna: "vegetacion_cobertura"})
-
         datos["anio_cobertura"] = anio
         datos["vegetacion_cobertura"] = datos["vegetacion_cobertura"].apply(simplificar_cobertura)
         datos["area"] = datos.geometry.area
-
         registros.append(datos)
 
     ide_largo = pd.concat(registros, ignore_index=True)
@@ -170,18 +158,9 @@ def obtener_cobertura_dominante(ide_largo):
 
 def limpiar_fecha_conaf(serie):
     meses = {
-        "ene": "Jan",
-        "feb": "Feb",
-        "mar": "Mar",
-        "abr": "Apr",
-        "may": "May",
-        "jun": "Jun",
-        "jul": "Jul",
-        "ago": "Aug",
-        "sep": "Sep",
-        "oct": "Oct",
-        "nov": "Nov",
-        "dic": "Dec"
+        "ene": "Jan", "feb": "Feb", "mar": "Mar", "abr": "Apr",
+        "may": "May", "jun": "Jun", "jul": "Jul", "ago": "Aug",
+        "sep": "Sep", "oct": "Oct", "nov": "Nov", "dic": "Dec"
     }
 
     serie = serie.astype(str)
@@ -209,8 +188,7 @@ def normalizar_comuna(nombre):
 def procesar_eventos_conaf():
     logger.info("Inicio de limpieza y transformación CONAF.")
 
-    conaf = gpd.read_file(RUTA_CONAF)
-
+    conaf = cargar_conaf()
     datos = conaf[["Comuna", "Inicio", "Lat", "Lon", "Superficie", "geometry"]].copy()
 
     datos = datos.rename(columns={
@@ -240,7 +218,6 @@ def procesar_eventos_conaf():
 
 def construir_panel_conaf(eventos):
     ocurrencias = eventos.groupby(["comuna", "periodo"]).size().reset_index(name="ocurrencias_mes")
-
     comunas = sorted(eventos["comuna"].unique())
 
     periodos = pd.period_range(
@@ -259,7 +236,6 @@ def construir_panel_conaf(eventos):
 
     panel["ocurrencias_mes"] = panel["ocurrencias_mes"].fillna(0).astype(int)
     panel["ocurrencia_incendio"] = (panel["ocurrencias_mes"] > 0).astype(int)
-
     panel = panel.sort_values(["comuna", "periodo"])
 
     panel["incendios_historicos"] = (
@@ -272,8 +248,7 @@ def construir_panel_conaf(eventos):
     panel["periodo"] = panel["periodo"].astype(str)
 
     logger.info("Panel CONAF generado: %s registros | Comunas: %s | Rango: %s a %s.",
-                len(panel), panel["comuna"].nunique(),
-                panel["periodo"].min(), panel["periodo"].max())
+                len(panel), panel["comuna"].nunique(), panel["periodo"].min(), panel["periodo"].max())
 
     logger.info("Ocurrencia de incendio: 0=%s | 1=%s.",
                 (panel["ocurrencia_incendio"] == 0).sum(),
@@ -291,20 +266,14 @@ if __name__ == "__main__":
         dmc = procesar_dmc()
 
         print("\n--- DMC PROCESADO ---")
-        print("\nPrimeros registros:")
         print(dmc.head(10))
-
-        print("\nCantidad total de registros:")
-        print(len(dmc))
-
+        print("\nCantidad total:", len(dmc))
         print("\nValores nulos:")
         print(dmc.isnull().sum())
 
         completos = dmc.dropna(subset=["temperatura", "humedad", "viento"])
 
-        print("\nCantidad de registros completos:")
-        print(len(completos))
-
+        print("\nRegistros completos:", len(completos))
         print("\nRango temporal por estación:")
         print(completos.groupby("codigo_estacion")["periodo"].agg(["min", "max", "count"]))
 
@@ -312,36 +281,21 @@ if __name__ == "__main__":
         cobertura_dominante = obtener_cobertura_dominante(ide_largo)
 
         print("\n--- IDE PROCESADO ---")
-        print("\nPrimeros registros:")
         print(cobertura_dominante.head(30))
-
-        print("\nCantidad de registros:")
-        print(len(cobertura_dominante))
-
-        print("\nCategorías de cobertura:")
+        print("\nCantidad de registros:", len(cobertura_dominante))
+        print("\nCategorías:")
         print(cobertura_dominante["vegetacion_cobertura"].value_counts())
 
         eventos_conaf = procesar_eventos_conaf()
         panel_conaf = construir_panel_conaf(eventos_conaf)
 
         print("\n--- CONAF PROCESADO ---")
-        print("\nPrimeros eventos:")
         print(eventos_conaf[["comuna", "fecha_incendio", "periodo"]].head(10))
-
-        print("\nPanel mensual:")
-        print(panel_conaf.head(30))
-
-        print("\nCantidad de registros:")
-        print(len(panel_conaf))
-
-        print("\nDistribución de ocurrencia de incendio:")
+        print("\nCantidad de registros:", len(panel_conaf))
+        print("\nDistribución de ocurrencia:")
         print(panel_conaf["ocurrencia_incendio"].value_counts())
-
-        print("\nRango temporal:")
-        print(panel_conaf["periodo"].min(), "a", panel_conaf["periodo"].max())
-
-        print("\nCantidad de comunas:")
-        print(panel_conaf["comuna"].nunique())
+        print("\nRango temporal:", panel_conaf["periodo"].min(), "a", panel_conaf["periodo"].max())
+        print("\nCantidad de comunas:", panel_conaf["comuna"].nunique())
 
         comunas_conaf = set(panel_conaf["comuna"].unique())
         comunas_ide = set(cobertura_dominante["comuna"].unique())

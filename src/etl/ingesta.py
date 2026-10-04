@@ -11,19 +11,19 @@ RUTA_CONAF = Path("data/raw/conaf/cobertura_incendios/II_FF.shp")
 RUTA_IDE = Path("data/raw/ide/cobertura_vegetacion_valparaiso/cut_2001_2023_R05.shp")
 RUTA_DMC = Path("data/raw/dmc")
 
+CARPETAS_DMC = [
+    RUTA_DMC / "320019_san_felipe",
+    RUTA_DMC / "320041_torquemada",
+    RUTA_DMC / "330007_rodelillo",
+    RUTA_DMC / "330030_santo_domingo"
+]
+
 
 def cargar_conaf():
     try:
         datos = gpd.read_file(RUTA_CONAF)
-
-        print("\n--- CONAF ---")
-        print(f"Registros: {len(datos)}")
-        print(f"Columnas: {len(datos.columns)}")
-        print(datos.columns.tolist())
-
-        logger.info(f"CONAF cargado correctamente: {len(datos)} registros y {len(datos.columns)} columnas.")
+        logger.info("CONAF cargado correctamente: %s registros | %s columnas.", len(datos), len(datos.columns))
         return datos
-
     except Exception:
         logger.exception("Error durante la ingesta de CONAF.")
         raise
@@ -32,56 +32,52 @@ def cargar_conaf():
 def cargar_ide():
     try:
         datos = gpd.read_file(RUTA_IDE)
-
-        print("\n--- IDE CHILE ---")
-        print(f"Registros: {len(datos)}")
-        print(f"Columnas: {len(datos.columns)}")
-        print(datos.columns.tolist())
-
-        logger.info(f"IDE Chile cargado correctamente: {len(datos)} registros y {len(datos.columns)} columnas.")
+        logger.info("IDE Chile cargado correctamente: %s registros | %s columnas.", len(datos), len(datos.columns))
         return datos
-
     except Exception:
         logger.exception("Error durante la ingesta de IDE Chile.")
         raise
 
 
-def cargar_dmc():
+def cargar_estacion_dmc(carpeta_estacion):
     try:
-        archivos = sorted(RUTA_DMC.rglob("*.csv"))
+        carpeta = Path(carpeta_estacion)
 
-        print("\n--- DMC ---")
-        print(f"Archivos CSV encontrados: {len(archivos)}")
+        archivo_humedad = next(carpeta.glob("*Humedad*.csv"))
+        archivo_temperatura = next(carpeta.glob("*Temperatura*.csv"))
+        archivo_viento = next(carpeta.glob("*Viento*.csv"))
 
-        logger.info(f"Archivos DMC encontrados: {len(archivos)}.")
+        humedad = pd.read_csv(archivo_humedad, sep=";")
+        temperatura = pd.read_csv(archivo_temperatura, sep=";")
+        viento = pd.read_csv(archivo_viento, sep=";")
 
-        datos_dmc = {}
+        logger.info(
+            "DMC cargado: %s | Humedad=%s | Temperatura=%s | Viento=%s registros.",
+            carpeta.name, len(humedad), len(temperatura), len(viento)
+        )
 
-        for archivo in archivos:
-            datos = pd.read_csv(archivo, sep=";")
-            datos_dmc[archivo.stem] = datos
-
-            print(f"\nArchivo: {archivo}")
-            print(f"Registros: {len(datos)}")
-            print(f"Columnas: {datos.columns.tolist()}")
-            print(datos.head(3))
-
-            logger.info(f"DMC cargado: {archivo.name} - {len(datos)} registros.")
-
-        logger.info(f"Ingesta DMC finalizada correctamente: {len(datos_dmc)} archivos procesados.")
-        return datos_dmc
+        return humedad, temperatura, viento
 
     except Exception:
-        logger.exception("Error durante la ingesta de DMC.")
+        logger.exception("Error durante la ingesta DMC de %s.", carpeta_estacion)
         raise
 
 
 if __name__ == "__main__":
     try:
         logger.info("Inicio de ingesta de datos.")
+
         conaf = cargar_conaf()
         ide = cargar_ide()
-        dmc = cargar_dmc()
+
+        for carpeta in CARPETAS_DMC:
+            cargar_estacion_dmc(carpeta)
+
+        print("\nIngesta finalizada correctamente.")
+        print("CONAF:", len(conaf), "registros")
+        print("IDE:", len(ide), "registros")
+        print("Estaciones DMC:", len(CARPETAS_DMC))
+
         logger.info("Ingesta de datos finalizada correctamente.")
 
     except Exception:
