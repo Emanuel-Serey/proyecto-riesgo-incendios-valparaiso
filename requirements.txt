@@ -2,3 +2,6 @@ pandas
 geopandas
 openpyxl
 shapely
+sqlalchemy
+psycopg2-binary
+python-dotenv
