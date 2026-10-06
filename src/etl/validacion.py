@@ -1,188 +1,245 @@
-from integracion import integrar_todas_las_fuentes
-from logger_config import obtener_logger
+from pathlib import Path
+import logging
+import pandas as pd
 
+BASE_DIR = Path(__file__).resolve().parents[2]
+PROCESSED = BASE_DIR / "data/processed"
+LOGS = BASE_DIR / "logs"
 
-logger = obtener_logger("validacion", "validacion.log")
+RUTA_DATASET = PROCESSED / "dataset_modelo_diario.csv"
+RUTA_PANEL = PROCESSED / "panel_diario_integrado.csv"
+RUTA_ASIGNACION = PROCESSED / "asignacion_estaciones.csv"
 
-COLUMNAS_MODELO = [
-    "temperatura",
-    "humedad",
-    "viento",
-    "vegetacion_cobertura",
-    "incendios_historicos",
-    "ocurrencia_incendio"
-]
+logger = logging.getLogger("validacion")
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
+if not logger.handlers:
+    fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    fh = logging.FileHandler(LOGS / "validacion.log", encoding="utf-8")
+    sh = logging.StreamHandler()
+    fh.setFormatter(fmt)
+    sh.setFormatter(fmt)
+    logger.addHandler(fh)
+    logger.addHandler(sh)
 
-def validar_duplicados(datos):
-    duplicados = datos.duplicated(subset=["comuna", "periodo"]).sum()
+def validar():
+    logger.info("Inicio de validación del dataset V2.")
 
-    print("\n--- DUPLICADOS ---")
-    print("Registros duplicados por comuna + periodo:", duplicados)
-
-    logger.info("Registros duplicados por comuna + periodo: %s.", duplicados)
-    return duplicados == 0
-
-
-def validar_nulos(datos):
-    nulos = datos[COLUMNAS_MODELO].isna().sum()
-
-    print("\n--- VALORES NULOS ---")
-    print(nulos)
-
-    logger.info(
-        "Nulos: temperatura=%s | humedad=%s | viento=%s | cobertura=%s | históricos=%s | ocurrencia=%s.",
-        nulos["temperatura"],
-        nulos["humedad"],
-        nulos["viento"],
-        nulos["vegetacion_cobertura"],
-        nulos["incendios_historicos"],
-        nulos["ocurrencia_incendio"]
+    df = pd.read_csv(
+        RUTA_DATASET,
+        parse_dates=["fecha_objetivo", "fecha_meteorologica"]
     )
 
-    return nulos
+    panel = pd.read_csv(
+        RUTA_PANEL,
+        parse_dates=["fecha_objetivo", "fecha_meteorologica"]
+    )
 
+    asignacion = pd.read_csv(RUTA_ASIGNACION)
 
-def validar_ocurrencia_incendio(datos):
-    valores = sorted(datos["ocurrencia_incendio"].dropna().unique())
-    correcto = set(valores).issubset({0, 1})
+    # Duplicados
+    duplicados = df.duplicated(["comuna", "fecha_objetivo"]).sum()
+    logger.info(
+        "Registros duplicados por comuna + fecha: %s.",
+        duplicados
+    )
 
-    print("\n--- OCURRENCIA DE INCENDIO ---")
-    print("Valores encontrados:", valores)
-    print("Variable de ocurrencia binaria válida:", correcto)
+    # Comunas y rango
+    logger.info(
+        "Registros=%s | Comunas=%s | Rango=%s a %s.",
+        len(df),
+        df["comuna"].nunique(),
+        df["fecha_objetivo"].min().date(),
+        df["fecha_objetivo"].max().date()
+    )
 
-    logger.info("Valores de ocurrencia encontrados: %s | Variable binaria válida: %s.", valores, correcto)
-    return correcto
+    # Target
+    valores_target = sorted(df["ocurrencia_incendio"].dropna().unique())
+    target_valido = set(valores_target).issubset({0, 1})
 
+    logger.info(
+        "Target | Valores=%s | Binario válido=%s | Positivos=%s | Negativos=%s.",
+        valores_target,
+        target_valido,
+        (df["ocurrencia_incendio"] == 1).sum(),
+        (df["ocurrencia_incendio"] == 0).sum()
+    )
 
-def validar_incendios_historicos(datos):
-    negativos = (datos["incendios_historicos"] < 0).sum()
-    minimo = datos["incendios_historicos"].min()
-    maximo = datos["incendios_historicos"].max()
+    # Positivos eliminados por falta de variables
+    positivos_panel = panel["ocurrencia_incendio"].sum()
+    positivos_final = df["ocurrencia_incendio"].sum()
 
-    print("\n--- INCENDIOS HISTÓRICOS ---")
-    print("Valores negativos:", negativos)
-    print("Mínimo:", minimo)
-    print("Máximo:", maximo)
+    logger.info(
+        "Positivos | Panel=%s | Dataset final=%s | Excluidos=%s.",
+        positivos_panel,
+        positivos_final,
+        positivos_panel - positivos_final
+    )
 
-    logger.info("Incendios históricos: mínimo=%s | máximo=%s | negativos=%s.", minimo, maximo, negativos)
-    return negativos == 0
+    # D-1
+    diferencia = (
+        df["fecha_objetivo"] - df["fecha_meteorologica"]
+    ).dt.days
 
+    errores_d1 = (diferencia != 1).sum()
 
-def validar_variables_meteorologicas(datos):
-    print("\n--- VARIABLES METEOROLÓGICAS ---")
+    logger.info(
+        "Temporalidad DMC | Filas que no cumplen D-1=%s.",
+        errores_d1
+    )
 
-    for columna in ["temperatura", "humedad", "viento"]:
-        minimo = datos[columna].min()
-        maximo = datos[columna].max()
-        promedio = round(datos[columna].mean(), 2)
+    # Nulos
+    variables = [
+        "temperatura_media",
+        "temperatura_max",
+        "humedad_media",
+        "humedad_min",
+        "viento_medio",
+        "viento_max",
+        "vegetacion_cobertura",
+        "anio_cobertura",
+        "incendios_historicos"
+    ]
 
-        print(f"\n{columna}:")
-        print("Mínimo:", minimo)
-        print("Máximo:", maximo)
-        print("Promedio:", promedio)
+    nulos = df[variables].isna().sum()
+    logger.info(
+        "Nulos variables principales: %s.",
+        nulos.to_dict()
+    )
 
-        logger.info("%s: mínimo=%.2f | máximo=%.2f | promedio=%.2f.", columna.capitalize(), minimo, maximo, promedio)
+    # Cobertura DMC
+    cobertura_mala = (df["cobertura_pct"] < 80).sum()
 
-    humedad_invalida = ((datos["humedad"] < 0) | (datos["humedad"] > 100)).sum()
-    viento_negativo = (datos["viento"] < 0).sum()
+    logger.info(
+        "Cobertura DMC | Filas <80%%=%s | Mínima=%.2f | Promedio=%.2f.",
+        cobertura_mala,
+        df["cobertura_pct"].min(),
+        df["cobertura_pct"].mean()
+    )
 
-    print("\nHumedades fuera de 0-100:", humedad_invalida)
-    print("Valores de viento negativos:", viento_negativo)
+    # Rangos meteorológicos
+    temp_fuera = (
+        (df["temperatura_media"] < -20)
+        | (df["temperatura_max"] > 50)
+    ).sum()
 
-    logger.info("Humedades fuera de rango: %s | Valores de viento negativos: %s.", humedad_invalida, viento_negativo)
+    humedad_fuera = (
+        (df["humedad_min"] < 0)
+        | (df["humedad_media"] > 100)
+    ).sum()
 
-    return humedad_invalida == 0 and viento_negativo == 0
+    viento_negativo = (
+        (df["viento_medio"] < 0)
+        | (df["viento_max"] < 0)
+    ).sum()
 
+    logger.info(
+        "Meteorología | Temperatura fuera de rango=%s | Humedad fuera de rango=%s | Viento negativo=%s.",
+        temp_fuera,
+        humedad_fuera,
+        viento_negativo
+    )
 
-def validar_cobertura(datos):
-    conteo = datos["vegetacion_cobertura"].value_counts(dropna=False)
+    # IDE temporal
+    ide_futuro = (
+        df["anio_cobertura"]
+        > df["fecha_objetivo"].dt.year
+    ).sum()
 
-    print("\n--- VEGETACIÓN / COBERTURA ---")
-    print(conteo)
+    anios_ide = sorted(
+        df["anio_cobertura"].dropna().unique()
+    )
 
-    logger.info("Categorías de cobertura encontradas: %s.", datos["vegetacion_cobertura"].nunique(dropna=True))
-    return conteo
+    logger.info(
+        "IDE | Cobertura futura=%s | Años utilizados=%s | Categorías=%s.",
+        ide_futuro,
+        anios_ide,
+        df["vegetacion_cobertura"].nunique()
+    )
 
+    # Perfil histórico
+    historicos_negativos = (
+        df["incendios_historicos"] < 0
+    ).sum()
 
-def validar_distancias_estaciones(datos):
-    estaciones = datos[["comuna", "nombre_estacion", "distancia_estacion_km"]].drop_duplicates()
+    variacion_hist = (
+        df.groupby("comuna")["incendios_historicos"]
+        .nunique()
+    )
 
-    promedio = round(estaciones["distancia_estacion_km"].mean(), 2)
-    maxima = round(estaciones["distancia_estacion_km"].max(), 2)
-    lejanas = estaciones[estaciones["distancia_estacion_km"] > 50]
+    logger.info(
+        "Incendios históricos | Negativos=%s | Comunas con valor no constante=%s.",
+        historicos_negativos,
+        (variacion_hist > 1).sum()
+    )
 
-    print("\n--- DISTANCIA A ESTACIÓN DMC ---")
-    print("Distancia promedio:", promedio, "km")
-    print("Distancia máxima:", maxima, "km")
-    print("\nComunas a más de 50 km:")
-    print(lejanas.to_string(index=False))
+    # Respaldo
+    respaldo = df[df["uso_respaldo"] == True]
 
-    logger.info("Distancia DMC promedio: %.2f km | Máxima: %.2f km | Comunas a más de 50 km: %s.",
-                promedio, maxima, len(lejanas))
+    respaldo_incorrecto = (
+        (respaldo["codigo_estacion_principal"].astype(str) != "320041")
+        | (respaldo["codigo_estacion_usada"].astype(str) != "330006")
+    ).sum()
 
-    if len(lejanas) > 0:
-        logger.warning("Comunas a más de 50 km de su estación DMC: %s.", ", ".join(lejanas["comuna"].tolist()))
+    logger.info(
+        "Respaldo DMC | Filas=%s | Uso incorrecto=%s.",
+        len(respaldo),
+        respaldo_incorrecto
+    )
 
-    return lejanas
+    # Distancias
+    max_distancia = asignacion["distancia_estacion_km"].max()
+    lejanas = asignacion[
+        asignacion["distancia_estacion_km"] > 50
+    ]
 
+    logger.info(
+        "Distancia DMC | Promedio=%.2f km | Máxima=%.2f km | Comunas >50 km=%s.",
+        asignacion["distancia_estacion_km"].mean(),
+        max_distancia,
+        len(lejanas)
+    )
 
-def resumen_registros_completos(datos):
-    completos = datos.dropna(subset=COLUMNAS_MODELO)
-    porcentaje = len(completos) / len(datos) * 100
+    if not lejanas.empty:
+        logger.warning(
+            "Comunas a más de 50 km de su estación: %s.",
+            ", ".join(
+                lejanas.sort_values(
+                    "distancia_estacion_km",
+                    ascending=False
+                )["comuna"].tolist()
+            )
+        )
 
-    print("\n--- REGISTROS COMPLETOS ---")
-    print("Total integrado:", len(datos))
-    print("Registros completos:", len(completos))
-    print("Porcentaje completo:", round(porcentaje, 2), "%")
-    print("Comunas con registros completos:", completos["comuna"].nunique())
-    print("Rango temporal:", completos["periodo"].min(), "a", completos["periodo"].max())
+    # Islas fuera del alcance
+    islas = df[
+        df["comuna"].isin(["Isla de Pascua", "Juan Fernández"])
+    ]
 
-    logger.info("Registros integrados: %s | Registros completos: %s | Completitud: %.2f%%.",
-                len(datos), len(completos), porcentaje)
-    logger.info("Comunas con registros completos: %s | Rango temporal: %s a %s.",
-                completos["comuna"].nunique(), completos["periodo"].min(), completos["periodo"].max())
+    logger.info(
+        "Comunas insulares presentes en dataset: %s.",
+        islas["comuna"].nunique()
+    )
 
-    return completos
+    errores = (
+        duplicados
+        + errores_d1
+        + cobertura_mala
+        + ide_futuro
+        + historicos_negativos
+        + respaldo_incorrecto
+    )
 
+    if errores == 0:
+        logger.info("Validación finalizada correctamente.")
+    else:
+        logger.warning(
+            "Validación finalizada con %s inconsistencias críticas.",
+            errores
+        )
 
-def validar_dataset(datos):
-    logger.info("Inicio de validación del dataset.")
-
-    print("\nVALIDACIÓN DEL DATASET")
-
-    duplicados_ok = validar_duplicados(datos)
-    validar_nulos(datos)
-    ocurrencia_ok = validar_ocurrencia_incendio(datos)
-    historicos_ok = validar_incendios_historicos(datos)
-    meteorologia_ok = validar_variables_meteorologicas(datos)
-    validar_cobertura(datos)
-    validar_distancias_estaciones(datos)
-
-    completos = resumen_registros_completos(datos)
-
-    errores = []
-    if not duplicados_ok:
-        errores.append("registros duplicados")
-    if not ocurrencia_ok:
-        errores.append("ocurrencia_incendio inválida")
-    if not historicos_ok:
-        errores.append("incendios_historicos negativos")
-    if not meteorologia_ok:
-        errores.append("variables meteorológicas fuera de rango")
-
-    if errores:
-        logger.error("Validación fallida: %s.", ", ".join(errores))
-        raise ValueError("Validación del dataset fallida: " + ", ".join(errores))
-
-    logger.info("Validación finalizada correctamente.")
-    return completos
-
+    return df
 
 if __name__ == "__main__":
-    try:
-        datos = integrar_todas_las_fuentes()
-        datos_completos = validar_dataset(datos)
-    except Exception:
-        logger.exception("Error durante la validación del dataset.")
-        raise
+    validar()

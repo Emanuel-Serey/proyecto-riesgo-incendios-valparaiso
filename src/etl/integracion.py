@@ -1,305 +1,383 @@
+from pathlib import Path
+import logging
+import numpy as np
 import pandas as pd
 import geopandas as gpd
 
-from limpieza_transformacion import (
-    procesar_eventos_conaf,
-    construir_panel_conaf,
-    procesar_ide,
-    obtener_cobertura_dominante,
-    procesar_dmc
-)
+BASE_DIR = Path(__file__).resolve().parents[2]
+PROCESSED = BASE_DIR / "data/processed"
+RUTA_GEO = BASE_DIR / "data/raw/ide/cobertura_vegetacion_valparaiso/cut_2001_2023_R05.shp"
+LOGS = BASE_DIR / "logs"
+LOGS.mkdir(parents=True, exist_ok=True)
 
-from ingesta import cargar_ide
+logger = logging.getLogger("integracion")
+logger.setLevel(logging.INFO)
+logger.propagate = False
 
-from logger_config import obtener_logger
+if not logger.handlers:
+    fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    fh = logging.FileHandler(LOGS / "integracion.log", encoding="utf-8")
+    sh = logging.StreamHandler()
+    fh.setFormatter(fmt)
+    sh.setFormatter(fmt)
+    logger.addHandler(fh)
+    logger.addHandler(sh)
 
+FECHA_INICIO = pd.Timestamp("2019-06-02")
+FECHA_FIN = pd.Timestamp("2025-05-30")
+CORTE_HISTORICO = pd.Timestamp("2019-06-01")
+UMBRAL_COBERTURA = 80
 
-logger = obtener_logger("integracion", "integracion.log")
+ESTACIONES = [
+    ["320019", "San Felipe Escuela Agrícola", -32.755277, -70.706944],
+    ["320041", "Viña del Mar Ad. (Torquemada)", -32.949444, -71.476110],
+    ["330007", "Rodelillo, Ad.", -33.065277, -71.556388],
+    ["330030", "Santo Domingo, Ad.", -33.656111, -71.613333]
+]
 
+COD_TORQUEMADA = "320041"
+COD_RESPALDO = "330006"
+NOMBRE_RESPALDO = "Jardín Botánico (respaldo)"
 
-# CONAF + IDE
+def normalizar_comuna(nombre):
+    if pd.isna(nombre):
+        return None
+    nombre = str(nombre).strip()
+    cambios = {
+        "Calera": "La Calera",
+        "Llay-Llay": "Llaillay",
+        "Puchuncavi": "Puchuncaví"
+    }
+    return cambios.get(nombre, nombre)
 
-def integrar_conaf_ide():
-    logger.info("Inicio de integración CONAF + IDE.")
+def cargar_datos():
+    dmc = pd.read_csv(PROCESSED / "meteorologia_diaria.csv", parse_dates=["fecha"])
+    conaf = pd.read_csv(PROCESSED / "incendios_diarios.csv", parse_dates=["fecha"])
+    ide = pd.read_csv(PROCESSED / "vegetacion_comuna.csv")
 
-    eventos_conaf = procesar_eventos_conaf()
-    conaf = construir_panel_conaf(eventos_conaf)
-    conaf["anio"] = conaf["periodo"].str[:4].astype(int)
-
-    ide = procesar_ide()
-    cobertura = obtener_cobertura_dominante(ide)
-    cobertura["anio_cobertura"] = cobertura["anio_cobertura"].astype(int)
-
-    integrado = conaf.merge(cobertura, on="comuna", how="inner")
-
-    # Se utiliza la cobertura más reciente conocida hasta el año del registro
-    integrado = integrado[integrado["anio_cobertura"] <= integrado["anio"]].copy()
-
-    integrado = integrado.sort_values(
-        ["comuna", "periodo", "anio_cobertura"],
-        ascending=[True, True, False]
-    )
-
-    integrado = integrado.drop_duplicates(
-        subset=["comuna", "periodo"],
-        keep="first"
-    ).reset_index(drop=True)
+    dmc["codigo_estacion"] = dmc["codigo_estacion"].astype(str)
+    conaf["comuna"] = conaf["comuna"].apply(normalizar_comuna)
+    ide["comuna"] = ide["comuna"].apply(normalizar_comuna)
+    ide["anio_cobertura"] = ide["anio_cobertura"].astype(int)
 
     logger.info(
-        "Integración CONAF + IDE finalizada: %s registros | Comunas: %s.",
-        len(integrado),
-        integrado["comuna"].nunique()
+        "Datos cargados | DMC=%s | CONAF=%s | IDE=%s.",
+        len(dmc), len(conaf), len(ide)
     )
+    return dmc, conaf, ide
 
-    return integrado
+def asignar_estaciones(comunas):
+    if not RUTA_GEO.exists():
+        raise FileNotFoundError(f"No se encontró geometría comunal: {RUTA_GEO}")
 
+    geo = gpd.read_file(RUTA_GEO)
+    col_comuna = next((c for c in geo.columns if c.lower() == "nom_com"), None)
 
-# Estaciones DMC
+    if not col_comuna:
+        raise ValueError("No se encontró la columna NOM_COM en el shapefile IDE.")
 
-def obtener_estaciones_dmc():
-    estaciones = pd.DataFrame([
-        {
-            "codigo_estacion": "320019",
-            "nombre_estacion": "San Felipe Escuela Agrícola",
-            "latitud_estacion": -32.755277,
-            "longitud_estacion": -70.706944
-        },
-        {
-            "codigo_estacion": "320041",
-            "nombre_estacion": "Viña del Mar Ad. (Torquemada)",
-            "latitud_estacion": -32.949444,
-            "longitud_estacion": -71.476110
-        },
-        {
-            "codigo_estacion": "330007",
-            "nombre_estacion": "Rodelillo, Ad.",
-            "latitud_estacion": -33.065277,
-            "longitud_estacion": -71.556388
-        },
-        {
-            "codigo_estacion": "330030",
-            "nombre_estacion": "Santo Domingo, Ad.",
-            "latitud_estacion": -33.656111,
-            "longitud_estacion": -71.613333
-        }
-    ])
+    geo = geo[[col_comuna, "geometry"]].rename(columns={col_comuna: "comuna"})
+    geo["comuna"] = geo["comuna"].apply(normalizar_comuna)
+    geo = geo[geo["comuna"].isin(comunas)].dissolve(by="comuna", as_index=False)
 
-    return gpd.GeoDataFrame(
+    estaciones = pd.DataFrame(
+        ESTACIONES,
+        columns=["codigo_estacion_principal", "nombre_estacion_principal", "latitud", "longitud"]
+    )
+    estaciones = gpd.GeoDataFrame(
         estaciones,
-        geometry=gpd.points_from_xy(
-            estaciones["longitud_estacion"],
-            estaciones["latitud_estacion"]
-        ),
+        geometry=gpd.points_from_xy(estaciones["longitud"], estaciones["latitud"]),
         crs="EPSG:4326"
     )
 
+    crs = geo.estimate_utm_crs()
+    geo = geo.to_crs(crs)
+    estaciones = estaciones.to_crs(crs)
+    geo["centroide"] = geo.geometry.centroid
 
-# Geometrías comunales
-
-def obtener_geometrias_comunas():
-    ide = cargar_ide()
-
-    comunas = ide[["NOM_COM", "geometry"]].copy()
-    comunas = comunas.rename(columns={"NOM_COM": "comuna"})
-    comunas["comuna"] = comunas["comuna"].astype(str).str.strip()
-
-    comunas = comunas.dissolve(by="comuna", as_index=False)
-
-    logger.info("Geometrías comunales generadas: %s comunas.", len(comunas))
-    return comunas
-
-
-# Asignación comuna -> estación DMC
-
-def asignar_estacion_mas_cercana():
-    logger.info("Inicio de asignación de estaciones DMC.")
-
-    comunas = obtener_geometrias_comunas()
-    estaciones = obtener_estaciones_dmc()
-
-    crs_proyectado = comunas.estimate_utm_crs()
-    comunas = comunas.to_crs(crs_proyectado)
-    estaciones = estaciones.to_crs(crs_proyectado)
-
-    comunas["centroide"] = comunas.geometry.centroid
     resultados = []
 
-    for _, comuna in comunas.iterrows():
-        distancias = estaciones.geometry.distance(comuna["centroide"])
-        indice_cercana = distancias.idxmin()
-        estacion = estaciones.loc[indice_cercana]
-        distancia_km = distancias.loc[indice_cercana] / 1000
+    for _, fila in geo.iterrows():
+        distancias = estaciones.geometry.distance(fila["centroide"])
+        idx = distancias.idxmin()
+        est = estaciones.loc[idx]
 
         resultados.append({
-            "comuna": comuna["comuna"],
-            "codigo_estacion": estacion["codigo_estacion"],
-            "nombre_estacion": estacion["nombre_estacion"],
-            "distancia_estacion_km": round(distancia_km, 2)
+            "comuna": fila["comuna"],
+            "codigo_estacion_principal": est["codigo_estacion_principal"],
+            "nombre_estacion_principal": est["nombre_estacion_principal"],
+            "distancia_estacion_km": round(distancias.loc[idx] / 1000, 2)
         })
 
     asignacion = pd.DataFrame(resultados)
-
-    logger.info(
-        "Asignación DMC finalizada: %s comunas | Distancia promedio: %.2f km | Distancia máxima: %.2f km.",
-        len(asignacion),
-        asignacion["distancia_estacion_km"].mean(),
-        asignacion["distancia_estacion_km"].max()
+    asignacion.to_csv(
+        PROCESSED / "asignacion_estaciones.csv",
+        index=False,
+        encoding="utf-8-sig"
     )
 
+    logger.info(
+        "Estaciones asignadas | Comunas=%s | Máxima distancia=%.2f km.",
+        len(asignacion),
+        asignacion["distancia_estacion_km"].max()
+    )
     return asignacion
 
+def construir_perfil_historico(conaf, comunas):
+    hist = conaf[conaf["fecha"] < CORTE_HISTORICO].copy()
 
-# Integración completa
+    if hist.empty:
+        raise ValueError("No existen incendios anteriores al período del modelo.")
 
-def integrar_todas_las_fuentes():
-    logger.info("Inicio de integración completa de fuentes.")
+    inicio = hist["fecha"].min()
+    fin = CORTE_HISTORICO - pd.Timedelta(days=1)
+    anios = ((fin - inicio).days + 1) / 365.25
 
-    datos = integrar_conaf_ide()
+    perfil = (
+        hist.groupby("comuna", as_index=False)["cantidad_incendios"]
+        .sum()
+        .rename(columns={"cantidad_incendios": "incendios_historicos_total"})
+    )
 
-    asignacion = asignar_estacion_mas_cercana()
-    datos = datos.merge(asignacion, on="comuna", how="left")
+    base = pd.DataFrame({"comuna": comunas})
+    perfil = base.merge(perfil, on="comuna", how="left")
+    perfil["incendios_historicos_total"] = perfil["incendios_historicos_total"].fillna(0)
+    perfil["incendios_historicos"] = (
+        perfil["incendios_historicos_total"] / anios
+    ).round(2)
 
-    dmc = procesar_dmc()
+    perfil.to_csv(
+        PROCESSED / "perfil_incendios_historicos.csv",
+        index=False,
+        encoding="utf-8-sig"
+    )
 
-    dmc["codigo_estacion"] = dmc["codigo_estacion"].astype(str)
-    dmc["periodo"] = dmc["periodo"].astype(str)
+    logger.info(
+        "Perfil histórico | Rango=%s a %s | %.2f años | Comunas=%s.",
+        inicio.date(), fin.date(), anios, len(perfil)
+    )
+    return perfil
 
-    datos["codigo_estacion"] = datos["codigo_estacion"].astype(str)
-    datos["periodo"] = datos["periodo"].astype(str)
+def construir_panel(comunas, conaf):
+    fechas = pd.date_range(FECHA_INICIO, FECHA_FIN, freq="D")
 
-    datos = datos.merge(
-        dmc[["codigo_estacion", "periodo", "temperatura", "humedad", "viento"]],
-        on=["codigo_estacion", "periodo"],
+    panel = (
+        pd.MultiIndex.from_product(
+            [comunas, fechas],
+            names=["comuna", "fecha_objetivo"]
+        )
+        .to_frame(index=False)
+    )
+
+    incendios = conaf.rename(columns={"fecha": "fecha_objetivo"})
+    panel = panel.merge(
+        incendios[
+            [
+                "comuna",
+                "fecha_objetivo",
+                "cantidad_incendios",
+                "superficie_afectada",
+                "ocurrencia_incendio"
+            ]
+        ],
+        on=["comuna", "fecha_objetivo"],
         how="left"
     )
 
-    completos = datos.dropna(
-        subset=[
-            "temperatura",
-            "humedad",
-            "viento",
-            "vegetacion_cobertura",
-            "incendios_historicos"
-        ]
+    panel["cantidad_incendios"] = panel["cantidad_incendios"].fillna(0).astype(int)
+    panel["superficie_afectada"] = panel["superficie_afectada"].fillna(0)
+    panel["ocurrencia_incendio"] = panel["ocurrencia_incendio"].fillna(0).astype(int)
+
+    logger.info(
+        "Panel diario | Registros=%s | Comunas=%s | Rango=%s a %s | Positivos=%s.",
+        len(panel),
+        len(comunas),
+        FECHA_INICIO.date(),
+        FECHA_FIN.date(),
+        panel["ocurrencia_incendio"].sum()
+    )
+    return panel
+
+def agregar_vegetacion(panel, ide):
+    panel = panel.copy()
+    panel["anio"] = panel["fecha_objetivo"].dt.year
+
+    anios_ide = sorted(ide["anio_cobertura"].unique())
+    mapa = {
+        anio: max([x for x in anios_ide if x <= anio], default=np.nan)
+        for anio in panel["anio"].unique()
+    }
+
+    panel["anio_cobertura"] = panel["anio"].map(mapa)
+    panel = panel.merge(
+        ide,
+        on=["comuna", "anio_cobertura"],
+        how="left"
     )
 
     logger.info(
-        "Integración completa finalizada: %s registros | %s comunas | Registros completos: %s.",
-        len(datos),
-        datos["comuna"].nunique(),
-        len(completos)
+        "IDE integrado | Coberturas nulas=%s.",
+        panel["vegetacion_cobertura"].isna().sum()
+    )
+    return panel
+
+def agregar_meteorologia(panel, dmc):
+    vars_meteo = [
+        "temperatura_media", "temperatura_max",
+        "humedad_media", "humedad_min",
+        "viento_medio", "viento_max",
+        "observaciones", "observaciones_completas",
+        "cobertura_pct"
+    ]
+
+    principal = dmc.copy()
+    principal["fecha_objetivo"] = principal["fecha"] + pd.Timedelta(days=1)
+    principal = principal.rename(columns={"codigo_estacion": "codigo_estacion_principal"})
+
+    panel = panel.merge(
+        principal[["codigo_estacion_principal", "fecha_objetivo", *vars_meteo]],
+        on=["codigo_estacion_principal", "fecha_objetivo"],
+        how="left"
+    )
+
+    backup = dmc[dmc["codigo_estacion"] == COD_RESPALDO].copy()
+    backup["fecha_objetivo"] = backup["fecha"] + pd.Timedelta(days=1)
+    backup = backup[["fecha_objetivo", *vars_meteo]].rename(
+        columns={c: f"{c}_backup" for c in vars_meteo}
+    )
+    panel = panel.merge(backup, on="fecha_objetivo", how="left")
+
+    valida_principal = (
+        panel["cobertura_pct"].ge(UMBRAL_COBERTURA)
+        & panel["temperatura_media"].notna()
+        & panel["humedad_media"].notna()
+        & panel["viento_medio"].notna()
+    )
+
+    valida_backup = (
+        panel["cobertura_pct_backup"].ge(UMBRAL_COBERTURA)
+        & panel["temperatura_media_backup"].notna()
+        & panel["humedad_media_backup"].notna()
+        & panel["viento_medio_backup"].notna()
+    )
+
+    usar_backup = (
+        panel["codigo_estacion_principal"].eq(COD_TORQUEMADA)
+        & ~valida_principal
+        & valida_backup
+    )
+
+    for col in vars_meteo:
+        panel.loc[usar_backup, col] = panel.loc[usar_backup, f"{col}_backup"]
+
+    panel["uso_respaldo"] = usar_backup
+    panel["codigo_estacion_usada"] = panel["codigo_estacion_principal"]
+    panel["nombre_estacion_usada"] = panel["nombre_estacion_principal"]
+
+    panel.loc[usar_backup, "codigo_estacion_usada"] = COD_RESPALDO
+    panel.loc[usar_backup, "nombre_estacion_usada"] = NOMBRE_RESPALDO
+
+    panel["meteo_valida"] = (
+        panel["cobertura_pct"].ge(UMBRAL_COBERTURA)
+        & panel["temperatura_media"].notna()
+        & panel["humedad_media"].notna()
+        & panel["viento_medio"].notna()
+    )
+
+    panel["fecha_meteorologica"] = (
+        panel["fecha_objetivo"] - pd.Timedelta(days=1)
+    )
+
+    panel = panel.drop(
+        columns=[f"{c}_backup" for c in vars_meteo]
     )
 
     logger.info(
-        "Nulos meteorológicos: temperatura=%s | humedad=%s | viento=%s.",
-        datos["temperatura"].isna().sum(),
-        datos["humedad"].isna().sum(),
-        datos["viento"].isna().sum()
+        "DMC integrado | Filas con respaldo=%s | Filas meteorológicas inválidas=%s.",
+        panel["uso_respaldo"].sum(),
+        (~panel["meteo_valida"]).sum()
+    )
+    return panel
+
+def integrar():
+    logger.info("Inicio de integración ETL V2.")
+    dmc, conaf, ide = cargar_datos()
+
+    comunas = sorted(ide["comuna"].dropna().unique())
+    if len(comunas) != 36:
+        logger.warning("Se esperaban 36 comunas y se encontraron %s.", len(comunas))
+
+    asignacion = asignar_estaciones(comunas)
+    perfil = construir_perfil_historico(conaf, comunas)
+    panel = construir_panel(comunas, conaf)
+
+    panel = panel.merge(asignacion, on="comuna", how="left")
+    panel = panel.merge(
+        perfil[["comuna", "incendios_historicos"]],
+        on="comuna",
+        how="left"
     )
 
-    return datos
+    panel = agregar_vegetacion(panel, ide)
+    panel = agregar_meteorologia(panel, dmc)
 
+    panel.to_csv(
+        PROCESSED / "panel_diario_integrado.csv",
+        index=False,
+        encoding="utf-8-sig"
+    )
 
-# Ejecución directa
+    dataset = panel[
+        panel["meteo_valida"]
+        & panel["vegetacion_cobertura"].notna()
+        & panel["incendios_historicos"].notna()
+    ].copy()
+
+    columnas = [
+        "comuna",
+        "fecha_objetivo",
+        "fecha_meteorologica",
+        "codigo_estacion_principal",
+        "codigo_estacion_usada",
+        "nombre_estacion_usada",
+        "uso_respaldo",
+        "distancia_estacion_km",
+        "temperatura_media",
+        "temperatura_max",
+        "humedad_media",
+        "humedad_min",
+        "viento_medio",
+        "viento_max",
+        "cobertura_pct",
+        "vegetacion_cobertura",
+        "anio_cobertura",
+        "incendios_historicos",
+        "cantidad_incendios",
+        "superficie_afectada",
+        "ocurrencia_incendio"
+    ]
+
+    dataset = dataset[columnas].sort_values(["fecha_objetivo", "comuna"])
+    dataset.to_csv(
+        PROCESSED / "dataset_modelo_diario.csv",
+        index=False,
+        encoding="utf-8-sig"
+    )
+
+    logger.info(
+        "Dataset final | Registros=%s | Comunas=%s | Positivos=%s | Respaldo=%s.",
+        len(dataset),
+        dataset["comuna"].nunique(),
+        dataset["ocurrencia_incendio"].sum(),
+        dataset["uso_respaldo"].sum()
+    )
+    logger.info(
+        "Rango final=%s a %s.",
+        dataset["fecha_objetivo"].min().date(),
+        dataset["fecha_objetivo"].max().date()
+    )
+    logger.info("Integración finalizada correctamente.")
+    return dataset
 
 if __name__ == "__main__":
-    try:
-        logger.info("Inicio de ejecución directa de integración.")
-
-        datos = integrar_todas_las_fuentes()
-
-        print("\n--- INTEGRACIÓN COMPLETA ---")
-
-        print("\nPrimeros registros:")
-        columnas = [
-            "comuna", "periodo", "codigo_estacion", "nombre_estacion",
-            "temperatura", "humedad", "viento", "vegetacion_cobertura",
-            "incendios_historicos", "ocurrencia_incendio"
-        ]
-        print(datos[columnas].head(30))
-
-        print("\nCantidad total de registros:")
-        print(len(datos))
-
-        print("\nCantidad de comunas:")
-        print(datos["comuna"].nunique())
-
-        print("\nComunas asignadas a cada estación:")
-        asignaciones = (
-            datos[
-                ["comuna", "codigo_estacion", "nombre_estacion", "distancia_estacion_km"]
-            ]
-            .drop_duplicates()
-            .sort_values(["codigo_estacion", "distancia_estacion_km"])
-        )
-        print(asignaciones.to_string(index=False))
-
-        print("\nRegistros sin datos meteorológicos:")
-        print(datos[["temperatura", "humedad", "viento"]].isna().sum())
-
-        completos = datos.dropna(
-            subset=[
-                "temperatura",
-                "humedad",
-                "viento",
-                "vegetacion_cobertura",
-                "incendios_historicos"
-            ]
-        )
-
-        print("\nRegistros completos de las 5 variables:")
-        print(len(completos))
-
-        print("\nRango temporal de registros completos:")
-        print(completos["periodo"].min(), "a", completos["periodo"].max())
-
-        print("\n--- DISPONIBILIDAD POR ESTACIÓN ---")
-
-        resumen_estaciones = (
-            datos.groupby(["codigo_estacion", "nombre_estacion"])
-            .agg(
-                registros=("periodo", "count"),
-                temperatura_disponible=("temperatura", "count"),
-                humedad_disponible=("humedad", "count"),
-                viento_disponible=("viento", "count"),
-                periodo_inicio=("periodo", "min"),
-                periodo_fin=("periodo", "max")
-            )
-            .reset_index()
-        )
-
-        print(resumen_estaciones.to_string(index=False))
-
-        print("\n--- REGISTROS COMPLETOS POR COMUNA ---")
-
-        resumen_comunas = (
-            datos.assign(
-                completo=datos[
-                    [
-                        "temperatura",
-                        "humedad",
-                        "viento",
-                        "vegetacion_cobertura",
-                        "incendios_historicos"
-                    ]
-                ].notna().all(axis=1)
-            )
-            .groupby("comuna")
-            .agg(
-                total_registros=("periodo", "count"),
-                registros_completos=("completo", "sum")
-            )
-            .reset_index()
-        )
-
-        print(
-            resumen_comunas
-            .sort_values("registros_completos")
-            .to_string(index=False)
-        )
-
-        logger.info("Ejecución directa de integración finalizada correctamente.")
-
-    except Exception:
-        logger.exception("Error durante la integración de fuentes.")
-        raise
+    integrar()
