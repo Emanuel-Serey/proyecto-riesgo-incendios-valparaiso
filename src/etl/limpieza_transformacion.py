@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import date, timedelta
 import json
 import logging
 import re
@@ -47,13 +48,11 @@ def normalizar_comuna(nombre):
         return None
 
     nombre = str(nombre).strip()
-
     cambios = {
         "Calera": "La Calera",
         "Llay-Llay": "Llaillay",
         "Puchuncavi": "Puchuncaví"
     }
-
     return cambios.get(nombre, nombre)
 
 
@@ -84,14 +83,23 @@ def leer_json_dmc(archivo):
     return df
 
 
-def procesar_dmc():
+def procesar_dmc(fecha_meteorologia=None):
     logger.info("Inicio procesamiento DMC.")
 
-    archivos = sorted(RUTA_DMC.glob("*/*.json"))
+    # Histórico: todos los JSON.
+    # Actual: solamente los JSON del mes correspondiente a D-1.
+    if fecha_meteorologia is None:
+        archivos = sorted(RUTA_DMC.glob("*/*.json"))
+        salida = PROCESSED / "meteorologia_diaria.csv"
+    else:
+        fecha_meteorologia = pd.Timestamp(fecha_meteorologia).normalize()
+        periodo = fecha_meteorologia.strftime("%Y-%m")
+        archivos = sorted(RUTA_DMC.glob(f"*/{periodo}.json"))
+        salida = PROCESSED / "meteorologia_actual.csv"
+
     logger.info(
         "DMC | Ruta=%s | Archivos JSON encontrados=%s.",
-        RUTA_DMC,
-        len(archivos)
+        RUTA_DMC, len(archivos)
     )
 
     if not archivos:
@@ -104,19 +112,13 @@ def procesar_dmc():
     for archivo in archivos:
         try:
             df = leer_json_dmc(archivo)
-
             if df.empty:
                 vacios += 1
             else:
                 dfs.append(df)
-
         except Exception as error:
             errores += 1
-            logger.warning(
-                "DMC | Error leyendo %s | %s",
-                archivo.name,
-                error
-            )
+            logger.warning("DMC | Error leyendo %s | %s", archivo.name, error)
 
     if not dfs:
         raise ValueError("No se encontraron datos DMC válidos.")
@@ -132,40 +134,34 @@ def procesar_dmc():
     ]
 
     faltantes = [c for c in necesarias if c not in dmc.columns]
-
     if faltantes:
         raise ValueError(f"Faltan columnas DMC: {faltantes}")
 
     dmc = dmc[necesarias].copy()
-
-    dmc["fecha_hora"] = pd.to_datetime(
-        dmc["momento"],
-        errors="coerce"
-    )
-
+    dmc["fecha_hora"] = pd.to_datetime(dmc["momento"], errors="coerce")
     dmc["temperatura"] = dmc["temperatura"].apply(extraer_numero)
     dmc["humedad"] = dmc["humedadRelativa"].apply(extraer_numero)
     dmc["viento"] = dmc["fuerzaDelViento"].apply(extraer_numero)
-
     dmc = dmc.dropna(subset=["fecha_hora"])
-
-    duplicados = dmc.duplicated(
-        ["codigo_estacion", "fecha_hora"]
-    ).sum()
-
-    dmc = dmc.drop_duplicates(
-        ["codigo_estacion", "fecha_hora"]
-    )
-
     dmc["fecha"] = dmc["fecha_hora"].dt.normalize()
 
-    # Descartar lecturas de humedad relativa inválidas
+    # En modo actual nos quedamos únicamente con la meteorología de D-1.
+    if fecha_meteorologia is not None:
+        dmc = dmc[dmc["fecha"] == fecha_meteorologia].copy()
+
+        if dmc.empty:
+            raise ValueError(
+                f"No existen observaciones DMC para "
+                f"{fecha_meteorologia.date()}."
+            )
+
+    duplicados = dmc.duplicated(["codigo_estacion", "fecha_hora"]).sum()
+    dmc = dmc.drop_duplicates(["codigo_estacion", "fecha_hora"])
+
+    # Descartar lecturas de humedad relativa inválidas.
     mascara_humedad_invalida = (
         dmc["humedad"].notna()
-        & (
-            (dmc["humedad"] <= 0)
-            | (dmc["humedad"] > 100)
-        )
+        & ((dmc["humedad"] <= 0) | (dmc["humedad"] > 100))
     )
 
     humedad_invalidas = int(mascara_humedad_invalida.sum())
@@ -180,9 +176,7 @@ def procesar_dmc():
 
     logger.info(
         "DMC | Humedad inválida descartada=%s | <=0=%s | >100=%s.",
-        humedad_invalidas,
-        humedad_cero_negativa,
-        humedad_mayor_100
+        humedad_invalidas, humedad_cero_negativa, humedad_mayor_100
     )
 
     dmc["completo"] = (
@@ -193,8 +187,7 @@ def procesar_dmc():
     )
 
     diario = (
-        dmc
-        .groupby(["codigo_estacion", "fecha"], as_index=False)
+        dmc.groupby(["codigo_estacion", "fecha"], as_index=False)
         .agg(
             temperatura_media=("temperatura", "mean"),
             temperatura_max=("temperatura", "max"),
@@ -223,22 +216,16 @@ def procesar_dmc():
 
     diario[numericas] = diario[numericas].round(2)
     diario = diario.sort_values(["codigo_estacion", "fecha"])
-
-    salida = PROCESSED / "meteorologia_diaria.csv"
     diario.to_csv(salida, index=False, encoding="utf-8-sig")
 
     logger.info(
         "DMC | Archivos=%s | Válidos=%s | Vacíos=%s | Errores=%s.",
-        len(archivos),
-        len(dfs),
-        vacios,
-        errores
+        len(archivos), len(dfs), vacios, errores
     )
 
     logger.info(
         "DMC | Observaciones=%s | Duplicados eliminados=%s.",
-        len(dmc),
-        duplicados
+        len(dmc), duplicados
     )
 
     logger.info(
@@ -293,35 +280,21 @@ def procesar_conaf():
     conaf = gpd.read_file(RUTA_CONAF)
     total = len(conaf)
 
-    datos = conaf[
-        ["Comuna", "Inicio", "Superficie"]
-    ].copy()
-
-    datos.columns = [
-        "comuna",
-        "fecha_inicio",
-        "superficie"
-    ]
+    datos = conaf[["Comuna", "Inicio", "Superficie"]].copy()
+    datos.columns = ["comuna", "fecha_inicio", "superficie"]
 
     datos["comuna"] = datos["comuna"].apply(normalizar_comuna)
     datos["fecha_inicio"] = limpiar_fecha_conaf(datos["fecha_inicio"])
-    datos["superficie"] = pd.to_numeric(
-        datos["superficie"],
-        errors="coerce"
-    )
+    datos["superficie"] = pd.to_numeric(datos["superficie"], errors="coerce")
 
     fechas_nulas = datos["fecha_inicio"].isna().sum()
     comunas_nulas = datos["comuna"].isna().sum()
 
-    datos = datos.dropna(
-        subset=["comuna", "fecha_inicio"]
-    )
-
+    datos = datos.dropna(subset=["comuna", "fecha_inicio"])
     datos["fecha"] = datos["fecha_inicio"].dt.normalize()
 
     diario = (
-        datos
-        .groupby(["comuna", "fecha"], as_index=False)
+        datos.groupby(["comuna", "fecha"], as_index=False)
         .agg(
             cantidad_incendios=("fecha_inicio", "size"),
             superficie_afectada=("superficie", "sum")
@@ -337,9 +310,7 @@ def procesar_conaf():
 
     logger.info(
         "CONAF | Eventos originales=%s | Fechas nulas=%s | Comunas nulas=%s.",
-        total,
-        fechas_nulas,
-        comunas_nulas
+        total, fechas_nulas, comunas_nulas
     )
 
     logger.info(
@@ -385,7 +356,6 @@ def procesar_ide():
     logger.info("Inicio procesamiento IDE Chile.")
 
     ide = gpd.read_file(RUTA_IDE)
-
     col_comuna = buscar_columna(ide, "NOM_COM")
 
     if col_comuna is None:
@@ -397,109 +367,64 @@ def procesar_ide():
         real = buscar_columna(ide, nombre)
 
         if real is None:
-            raise ValueError(
-                f"IDE: no se encontró la columna {nombre}."
-            )
+            raise ValueError(f"IDE: no se encontró la columna {nombre}.")
 
         columnas[real] = anio
 
     if ide.crs is None:
         raise ValueError("IDE no posee sistema de coordenadas definido.")
 
-    ide_metric = ide.to_crs(
-        ide.estimate_utm_crs()
-    )
-
-    ide["superficie_ha"] = (
-        ide_metric.geometry.area / 10000
-    )
+    ide_metric = ide.to_crs(ide.estimate_utm_crs())
+    ide["superficie_ha"] = ide_metric.geometry.area / 10000
 
     registros = []
 
     for columna, anio in columnas.items():
-        df = ide[
-            [
-                col_comuna,
-                columna,
-                "superficie_ha"
-            ]
-        ].copy()
-
-        df.columns = [
-            "comuna",
-            "vegetacion_cobertura",
-            "superficie_ha"
-        ]
+        df = ide[[col_comuna, columna, "superficie_ha"]].copy()
+        df.columns = ["comuna", "vegetacion_cobertura", "superficie_ha"]
 
         df["comuna"] = df["comuna"].apply(normalizar_comuna)
-
         df["vegetacion_cobertura"] = (
-            df["vegetacion_cobertura"]
-            .apply(simplificar_cobertura)
+            df["vegetacion_cobertura"].apply(simplificar_cobertura)
         )
-
         df["anio_cobertura"] = anio
 
         df = df.dropna(
-            subset=[
-                "comuna",
-                "vegetacion_cobertura",
-                "superficie_ha"
-            ]
+            subset=["comuna", "vegetacion_cobertura", "superficie_ha"]
         )
 
         registros.append(df)
 
-    largo = pd.concat(
-        registros,
-        ignore_index=True
-    )
+    largo = pd.concat(registros, ignore_index=True)
 
     resumen = (
-        largo
-        .groupby(
-            [
-                "comuna",
-                "anio_cobertura",
-                "vegetacion_cobertura"
-            ],
+        largo.groupby(
+            ["comuna", "anio_cobertura", "vegetacion_cobertura"],
             as_index=False
         )["superficie_ha"]
         .sum()
     )
 
     totales = (
-        resumen
-        .groupby(
+        resumen.groupby(
             ["comuna", "anio_cobertura"],
             as_index=False
         )["superficie_ha"]
         .sum()
-        .rename(
-            columns={
-                "superficie_ha": "superficie_total_ha"
-            }
-        )
+        .rename(columns={"superficie_ha": "superficie_total_ha"})
     )
 
     idx = (
-        resumen
-        .groupby(
+        resumen.groupby(
             ["comuna", "anio_cobertura"]
         )["superficie_ha"]
         .idxmax()
     )
 
     dominante = (
-        resumen
-        .loc[idx]
+        resumen.loc[idx]
         .copy()
-        .rename(
-            columns={
-                "superficie_ha":
-                "superficie_dominante_ha"
-            }
-        )
+        .rename(columns={"superficie_ha": "superficie_dominante_ha"})
     )
 
     dominante = dominante.merge(
@@ -522,17 +447,10 @@ def procesar_ide():
             "superficie_dominante_ha",
             "porcentaje_cobertura"
         ]
-    ].sort_values(
-        ["comuna", "anio_cobertura"]
-    )
+    ].sort_values(["comuna", "anio_cobertura"])
 
     salida = PROCESSED / "vegetacion_comuna.csv"
-
-    dominante.to_csv(
-        salida,
-        index=False,
-        encoding="utf-8-sig"
-    )
+    dominante.to_csv(salida, index=False, encoding="utf-8-sig")
 
     logger.info(
         "IDE | Polígonos=%s | Comunas=%s | CRS=%s.",
@@ -556,18 +474,28 @@ def procesar_ide():
 # EJECUCIÓN
 # =========================
 
-def ejecutar_transformacion():
+def ejecutar_transformacion(modo="historico", fecha_meteorologia=None):
     logger.info(
-        "Inicio de limpieza y transformación ETL V2."
+        "Inicio limpieza y transformación ETL V2"
     )
 
     try:
-        procesar_dmc()
-        procesar_conaf()
-        procesar_ide()
+        if modo == "historico":
+            procesar_dmc()
+            procesar_conaf()
+            procesar_ide()
+
+        elif modo == "actual":
+            if fecha_meteorologia is None:
+                fecha_meteorologia = date.today() - timedelta(days=1)
+
+            procesar_dmc(fecha_meteorologia=fecha_meteorologia)
+
+        else:
+            raise ValueError("modo debe ser 'historico' o 'actual'")
 
         logger.info(
-            "Limpieza y transformación finalizada correctamente."
+            "Limpieza y transformación finalizada correctamente"
         )
 
     except Exception as error:
