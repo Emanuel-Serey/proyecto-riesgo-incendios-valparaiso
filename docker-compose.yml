@@ -1,0 +1,47 @@
+services:
+
+  data-service:
+    build:
+      context: .
+      dockerfile: src/services/data-service/Dockerfile
+
+    env_file:
+      - .env
+
+    environment:
+      DB_HOST: host.docker.internal
+
+    expose:
+      - "8001"
+
+    restart: unless-stopped
+
+
+  risk-service:
+    build:
+      context: .
+      dockerfile: src/services/risk-service/Dockerfile
+
+    expose:
+      - "8002"
+
+    restart: unless-stopped
+
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/services/api-gateway/Dockerfile
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      DATA_SERVICE_URL: http://data-service:8001
+      RISK_SERVICE_URL: http://risk-service:8002
+
+    depends_on:
+      - data-service
+      - risk-service
+
+    restart: unless-stopped

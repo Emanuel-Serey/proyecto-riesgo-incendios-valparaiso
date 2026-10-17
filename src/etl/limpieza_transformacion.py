@@ -159,6 +159,32 @@ def procesar_dmc():
 
     dmc["fecha"] = dmc["fecha_hora"].dt.normalize()
 
+    # Descartar lecturas de humedad relativa inválidas
+    mascara_humedad_invalida = (
+        dmc["humedad"].notna()
+        & (
+            (dmc["humedad"] <= 0)
+            | (dmc["humedad"] > 100)
+        )
+    )
+
+    humedad_invalidas = int(mascara_humedad_invalida.sum())
+    humedad_cero_negativa = int(
+        (dmc["humedad"].notna() & (dmc["humedad"] <= 0)).sum()
+    )
+    humedad_mayor_100 = int(
+        (dmc["humedad"].notna() & (dmc["humedad"] > 100)).sum()
+    )
+
+    dmc.loc[mascara_humedad_invalida, "humedad"] = None
+
+    logger.info(
+        "DMC | Humedad inválida descartada=%s | <=0=%s | >100=%s.",
+        humedad_invalidas,
+        humedad_cero_negativa,
+        humedad_mayor_100
+    )
+
     dmc["completo"] = (
         dmc[["temperatura", "humedad", "viento"]]
         .notna()
