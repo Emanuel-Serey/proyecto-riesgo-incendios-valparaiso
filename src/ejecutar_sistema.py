@@ -6,19 +6,17 @@ import time
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 LOGS = BASE_DIR / "logs"
-
 PIPELINE_ETL = BASE_DIR / "src" / "etl" / "pipeline_etl.py"
-PIPELINE_INFERENCIA = BASE_DIR / "src" / "inferencia" / "pipeline_inferencia.py"
 
 LOGS.mkdir(parents=True, exist_ok=True)
 
-logger = logging.getLogger("pipeline_general")
+logger = logging.getLogger("sistema")
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
 if not logger.handlers:
     fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    fh = logging.FileHandler(LOGS / "pipeline_general.log", encoding="utf-8")
+    fh = logging.FileHandler(LOGS / "sistema.log", encoding="utf-8")
     sh = logging.StreamHandler()
     fh.setFormatter(fmt)
     sh.setFormatter(fmt)
@@ -48,18 +46,17 @@ def ejecutar(nombre, ruta):
 
 def ejecutar_sistema():
     logger.info("=" * 60)
-    logger.info("Inicio del sistema de predicción de incendios.")
+    logger.info("Inicio de actualización de datos del sistema.")
     logger.info("=" * 60)
 
     inicio = time.perf_counter()
 
     try:
         ejecutar("Pipeline ETL", PIPELINE_ETL)
-        ejecutar("Pipeline de inferencia", PIPELINE_INFERENCIA)
 
         logger.info("=" * 60)
         logger.info(
-            "Proceso completo finalizado correctamente | Tiempo total=%.2f s.",
+            "Actualización de datos finalizada correctamente | Tiempo total=%.2f s.",
             time.perf_counter() - inicio
         )
         logger.info("=" * 60)
@@ -72,7 +69,7 @@ def ejecutar_sistema():
         raise
 
     except Exception:
-        logger.exception("Error durante la ejecución del sistema.")
+        logger.exception("Error durante la actualización de datos.")
         raise
 
 

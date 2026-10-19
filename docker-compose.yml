@@ -4,16 +4,12 @@ services:
     build:
       context: .
       dockerfile: src/services/data-service/Dockerfile
-
     env_file:
       - .env
-
     environment:
       DB_HOST: host.docker.internal
-
     expose:
       - "8001"
-
     restart: unless-stopped
 
 
@@ -21,10 +17,13 @@ services:
     build:
       context: .
       dockerfile: src/services/risk-service/Dockerfile
-
+    env_file:
+      - .env
+    environment:
+      DB_HOST: host.docker.internal
+      MODELO_VERSION: random_forest_v1
     expose:
       - "8002"
-
     restart: unless-stopped
 
 
@@ -32,16 +31,45 @@ services:
     build:
       context: .
       dockerfile: src/services/api-gateway/Dockerfile
-
     ports:
       - "8000:8000"
-
     environment:
       DATA_SERVICE_URL: http://data-service:8001
       RISK_SERVICE_URL: http://risk-service:8002
-
     depends_on:
       - data-service
       - risk-service
-
     restart: unless-stopped
+
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoreo/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api-gateway
+      - data-service
+      - risk-service
+    restart: unless-stopped
+
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+
+volumes:
+  prometheus_data:
+  grafana_data:

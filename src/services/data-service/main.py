@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy import create_engine, text, URL
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -14,14 +15,17 @@ url = URL.create(
     database=os.getenv("DB_NAME")
 )
 
-engine = create_engine(
-    url,
-    pool_pre_ping=True
-)
+engine = create_engine(url, pool_pre_ping=True)
 
 app = FastAPI(
     title="Data Service - Incendios Forestales",
-    version="1.0"
+    version="2.0"
+)
+
+Instrumentator().instrument(app).expose(
+    app,
+    endpoint="/metrics",
+    include_in_schema=False
 )
 
 
@@ -32,18 +36,21 @@ def health():
 
 @app.get("/variables/{comuna}")
 def obtener_variables(comuna: str):
-
     consulta = text("""
         SELECT
+            id_variables,
+            comuna,
+            fecha_prediccion,
+            fecha_meteorologia,
             temperatura_media,
             humedad_media,
             viento_medio,
             vegetacion_cobertura,
             incendios_historicos
-        FROM dataset_modelo_diario
+        FROM public.variables_actuales
         WHERE LOWER(comuna) = LOWER(:comuna)
-        ORDER BY fecha_objetivo DESC
-        LIMIT 1
+        ORDER BY fecha_prediccion DESC
+        LIMIT 1;
     """)
 
     try:

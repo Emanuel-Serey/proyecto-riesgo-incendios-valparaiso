@@ -3,22 +3,20 @@ import requests
 
 from urllib.parse import quote
 from fastapi import FastAPI, HTTPException
+from prometheus_fastapi_instrumentator import Instrumentator
 
-
-DATA_SERVICE = os.getenv(
-    "DATA_SERVICE_URL",
-    "http://data-service:8001"
-)
-
-RISK_SERVICE = os.getenv(
-    "RISK_SERVICE_URL",
-    "http://risk-service:8002"
-)
-
+DATA_SERVICE = os.getenv("DATA_SERVICE_URL", "http://data-service:8001")
+RISK_SERVICE = os.getenv("RISK_SERVICE_URL", "http://risk-service:8002")
 
 app = FastAPI(
     title="API Gateway - Riesgo de Incendios Forestales",
-    version="1.0"
+    version="2.0"
+)
+
+Instrumentator().instrument(app).expose(
+    app,
+    endpoint="/metrics",
+    include_in_schema=False
 )
 
 
@@ -29,15 +27,13 @@ def health():
 
 @app.get("/riesgo/{comuna}")
 def obtener_riesgo(comuna: str):
+    comuna_url = quote(comuna, safe="")
 
     try:
-        comuna_url = quote(comuna, safe="")
-
         respuesta_datos = requests.get(
             f"{DATA_SERVICE}/variables/{comuna_url}",
             timeout=10
         )
-
     except requests.RequestException:
         raise HTTPException(
             status_code=503,
@@ -52,19 +48,29 @@ def obtener_riesgo(comuna: str):
 
     if respuesta_datos.status_code != 200:
         raise HTTPException(
-            status_code=500,
+            status_code=502,
             detail="Error al obtener las variables"
         )
 
     variables = respuesta_datos.json()
 
+    datos_modelo = {
+        "id_variables": variables["id_variables"],
+        "comuna": variables["comuna"],
+        "fecha_prediccion": variables["fecha_prediccion"],
+        "temperatura_media": variables["temperatura_media"],
+        "humedad_media": variables["humedad_media"],
+        "viento_medio": variables["viento_medio"],
+        "vegetacion_cobertura": variables["vegetacion_cobertura"],
+        "incendios_historicos": variables["incendios_historicos"]
+    }
+
     try:
         respuesta_riesgo = requests.post(
             f"{RISK_SERVICE}/predecir",
-            json=variables,
+            json=datos_modelo,
             timeout=10
         )
-
     except requests.RequestException:
         raise HTTPException(
             status_code=503,
@@ -73,13 +79,22 @@ def obtener_riesgo(comuna: str):
 
     if respuesta_riesgo.status_code != 200:
         raise HTTPException(
-            status_code=500,
+            status_code=502,
             detail="Error al calcular el riesgo"
         )
 
-    resultado = respuesta_riesgo.json()
+    riesgo = respuesta_riesgo.json()
 
     return {
-        "comuna": comuna,
-        "nivel_riesgo": resultado["nivel_riesgo"]
+        "comuna": variables["comuna"],
+        "fecha_prediccion": variables["fecha_prediccion"],
+        "fecha_meteorologia": variables["fecha_meteorologia"],
+        "nivel_riesgo": riesgo["nivel_riesgo"],
+        "score_modelo": riesgo["score_modelo"],
+        "modelo_version": riesgo["modelo_version"],
+        "temperatura_media": variables["temperatura_media"],
+        "humedad_media": variables["humedad_media"],
+        "viento_medio": variables["viento_medio"],
+        "vegetacion_cobertura": variables["vegetacion_cobertura"],
+        "incendios_historicos": variables["incendios_historicos"]
     }
