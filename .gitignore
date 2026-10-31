@@ -13,3 +13,4 @@ venv/
 *.joblib
 
 .vscode/
+*.tar
