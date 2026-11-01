@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backups-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+spec:
+  schedule: "0 3 * * *"
+  timeZone: "America/Santiago"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+
+          containers:
+            - name: postgres-backup
+              image: postgres:17-alpine
+
+              env:
+                - name: DB_HOST
+                  value: host.docker.internal
+
+                - name: DB_PORT
+                  valueFrom:
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_PORT
+
+                - name: DB_NAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_NAME
+
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_USER
+
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_PASSWORD
+
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+
+                  FECHA=$(date +%Y%m%d_%H%M%S)
+                  ARCHIVO="/backups/incendios_${FECHA}.dump"
+
+                  echo "Iniciando backup de ${DB_NAME}"
+
+                  pg_dump \
+                    -h "${DB_HOST}" \
+                    -p "${DB_PORT}" \
+                    -U "${DB_USER}" \
+                    -d "${DB_NAME}" \
+                    -Fc \
+                    -f "${ARCHIVO}"
+
+                  echo "Backup creado: ${ARCHIVO}"
+
+                  find /backups \
+                    -type f \
+                    -name "*.dump" \
+                    -mtime +7 \
+                    -delete
+
+                  echo "Backup finalizado correctamente"
+
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: postgres-backups-pvc

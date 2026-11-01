@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backup-inspector
+spec:
+  restartPolicy: Never
+
+  containers:
+    - name: inspector
+      image: postgres:17-alpine
+      command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Backups disponibles:"
+          ls -lh /backups
+          sleep 3600
+
+      volumeMounts:
+        - name: backups
+          mountPath: /backups
+
+  volumes:
+    - name: backups
+      persistentVolumeClaim:
+        claimName: postgres-backups-pvc
