@@ -1,6 +1,7 @@
 data/raw/**
 data/processed/**
 logs/**
+outputs/
 
 __pycache__/
 *.pyc
