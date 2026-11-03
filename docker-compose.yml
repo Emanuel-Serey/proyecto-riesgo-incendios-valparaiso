@@ -25,7 +25,19 @@ services:
     expose:
       - "8002"
     restart: unless-stopped
-
+  
+  ai-service:
+    build:
+      context: .
+      dockerfile: src/services/ai-service/Dockerfile
+    env_file:
+      - .env
+    environment:
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID}
+    expose:
+      - "8003"
+    restart: unless-stopped
 
   api-gateway:
     build:
@@ -39,6 +51,7 @@ services:
     depends_on:
       - data-service
       - risk-service
+      - ai-service
     restart: unless-stopped
 
 

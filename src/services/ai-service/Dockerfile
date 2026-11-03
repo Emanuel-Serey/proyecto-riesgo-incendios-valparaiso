@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt \
+    && groupadd --system app \
+    && useradd --system --gid app --create-home app
+
+COPY --chown=app:app src/services/ai-service/main.py ./main.py
+
+USER app
+
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
