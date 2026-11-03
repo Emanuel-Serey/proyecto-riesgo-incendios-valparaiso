@@ -4,8 +4,12 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && groupadd --system app \
+    && useradd --system --gid app --create-home app
 
-COPY src/services/api-gateway/main.py ./main.py
+COPY --chown=app:app src/services/api-gateway/main.py ./main.py
+
+USER app
 
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
