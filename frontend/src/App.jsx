@@ -79,7 +79,6 @@ function ConfigurarMapa({ regionGeojson }) {
     const limites = bounds.pad(0.08)
 
     map.setMaxBounds(limites)
-    map.options.maxBoundsViscosity = 1.0
 
   }, [regionGeojson, map])
 
