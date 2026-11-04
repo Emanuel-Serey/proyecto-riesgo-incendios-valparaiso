@@ -4,7 +4,6 @@ updates:
 
   # =========================================================
   # PYTHON
-  # requirements.txt
   # =========================================================
 
   - package-ecosystem: "pip"
@@ -15,10 +14,16 @@ updates:
 
     open-pull-requests-limit: 5
 
+    # El proyecto utiliza Python 3.11.
+    # SHAP >= 0.52 requiere Python >= 3.12.
+    ignore:
+      - dependency-name: "shap"
+        versions:
+          - ">=0.52.0"
+
 
   # =========================================================
-  # FRONTEND
-  # package.json / package-lock.json
+  # FRONTEND NPM
   # =========================================================
 
   - package-ecosystem: "npm"
@@ -29,10 +34,15 @@ updates:
 
     open-pull-requests-limit: 5
 
+    # Evitar saltos de versión mayor automáticos.
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
 
   # =========================================================
   # GITHUB ACTIONS
-  # .github/workflows/
   # =========================================================
 
   - package-ecosystem: "github-actions"
@@ -45,7 +55,7 @@ updates:
 
 
   # =========================================================
-  # DATA SERVICE
+  # DATA SERVICE - DOCKER
   # =========================================================
 
   - package-ecosystem: "docker"
@@ -56,9 +66,14 @@ updates:
 
     open-pull-requests-limit: 3
 
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
 
   # =========================================================
-  # RISK SERVICE
+  # RISK SERVICE - DOCKER
   # =========================================================
 
   - package-ecosystem: "docker"
@@ -69,9 +84,14 @@ updates:
 
     open-pull-requests-limit: 3
 
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
 
   # =========================================================
-  # API GATEWAY
+  # API GATEWAY - DOCKER
   # =========================================================
 
   - package-ecosystem: "docker"
@@ -82,9 +102,14 @@ updates:
 
     open-pull-requests-limit: 3
 
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
 
   # =========================================================
-  # AI SERVICE
+  # AI SERVICE - DOCKER
   # =========================================================
 
   - package-ecosystem: "docker"
@@ -95,9 +120,14 @@ updates:
 
     open-pull-requests-limit: 3
 
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
 
   # =========================================================
-  # FRONTEND DOCKER
+  # FRONTEND - DOCKER
   # =========================================================
 
   - package-ecosystem: "docker"
@@ -107,3 +137,8 @@ updates:
       interval: "weekly"
 
     open-pull-requests-limit: 3
+
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
