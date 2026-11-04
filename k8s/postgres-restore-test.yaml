@@ -1,0 +1,106 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-restore-test
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: postgres-restore
+          image: postgres:17-alpine
+
+          env:
+            - name: DB_HOST
+              value: host.docker.internal
+
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_PORT
+
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_NAME
+
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_USER
+
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_PASSWORD
+
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              TEST_DB="${DB_NAME}_restore_test"
+              ARCHIVO=$(ls -1t /backups/*.dump | head -n 1)
+
+              echo "Backup seleccionado: ${ARCHIVO}"
+              echo "Base de prueba: ${TEST_DB}"
+
+              psql \
+                -h "${DB_HOST}" \
+                -p "${DB_PORT}" \
+                -U "${DB_USER}" \
+                -d postgres \
+                -c "DROP DATABASE IF EXISTS ${TEST_DB} WITH (FORCE);"
+
+              createdb \
+                -h "${DB_HOST}" \
+                -p "${DB_PORT}" \
+                -U "${DB_USER}" \
+                "${TEST_DB}"
+
+              echo "Base de prueba creada"
+
+              pg_restore \
+                -h "${DB_HOST}" \
+                -p "${DB_PORT}" \
+                -U "${DB_USER}" \
+                -d "${TEST_DB}" \
+                --no-owner \
+                --no-privileges \
+                "${ARCHIVO}"
+
+              echo "Restauración finalizada"
+
+              echo "Tablas restauradas:"
+              psql \
+                -h "${DB_HOST}" \
+                -p "${DB_PORT}" \
+                -U "${DB_USER}" \
+                -d "${TEST_DB}" \
+                -c "\dt"
+
+              echo "Cantidad de variables actuales:"
+              psql \
+                -h "${DB_HOST}" \
+                -p "${DB_PORT}" \
+                -U "${DB_USER}" \
+                -d "${TEST_DB}" \
+                -c "SELECT COUNT(*) FROM public.variables_actuales;"
+
+              echo "Prueba de restauración completada correctamente"
+
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: postgres-backups-pvc

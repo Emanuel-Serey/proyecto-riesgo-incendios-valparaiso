@@ -1,0 +1,109 @@
+version: 2
+
+updates:
+
+  # =========================================================
+  # PYTHON
+  # requirements.txt
+  # =========================================================
+
+  - package-ecosystem: "pip"
+    directory: "/"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 5
+
+
+  # =========================================================
+  # FRONTEND
+  # package.json / package-lock.json
+  # =========================================================
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 5
+
+
+  # =========================================================
+  # GITHUB ACTIONS
+  # .github/workflows/
+  # =========================================================
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 5
+
+
+  # =========================================================
+  # DATA SERVICE
+  # =========================================================
+
+  - package-ecosystem: "docker"
+    directory: "/src/services/data-service"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 3
+
+
+  # =========================================================
+  # RISK SERVICE
+  # =========================================================
+
+  - package-ecosystem: "docker"
+    directory: "/src/services/risk-service"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 3
+
+
+  # =========================================================
+  # API GATEWAY
+  # =========================================================
+
+  - package-ecosystem: "docker"
+    directory: "/src/services/api-gateway"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 3
+
+
+  # =========================================================
+  # AI SERVICE
+  # =========================================================
+
+  - package-ecosystem: "docker"
+    directory: "/src/services/ai-service"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 3
+
+
+  # =========================================================
+  # FRONTEND DOCKER
+  # =========================================================
+
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+
+    schedule:
+      interval: "weekly"
+
+    open-pull-requests-limit: 3
