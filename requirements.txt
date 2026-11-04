@@ -16,7 +16,7 @@ joblib
 
 prometheus-fastapi-instrumentator
 
-shap==0.49.1
+shap==0.51.0
 
 GeoAlchemy2
 
