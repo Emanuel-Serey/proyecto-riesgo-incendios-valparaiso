@@ -1,5 +1,17 @@
 services:
 
+  report-service:
+    build:
+      context: .
+      dockerfile: src/services/report-service/Dockerfile
+    env_file:
+      - .env
+    environment:
+      REPORT_DB_HOST: host.docker.internal
+    expose:
+      - "8004"
+    restart: unless-stopped
+
   data-service:
     build:
       context: .
@@ -48,12 +60,13 @@ services:
     environment:
       DATA_SERVICE_URL: http://data-service:8001
       RISK_SERVICE_URL: http://risk-service:8002
+      REPORT_SERVICE_URL: http://report-service:8004
     depends_on:
       - data-service
       - risk-service
       - ai-service
+      - report-service
     restart: unless-stopped
-
 
   frontend:
     build:

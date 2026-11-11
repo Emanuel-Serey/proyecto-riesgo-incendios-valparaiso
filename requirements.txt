@@ -21,3 +21,13 @@ shap==0.51.0
 GeoAlchemy2
 
 boto3
+
+python-multipart
+ultralytics
+huggingface-hub
+
+PyJWT
+pwdlib[argon2]
+
+Pillow
+ImageHash==4.3.2

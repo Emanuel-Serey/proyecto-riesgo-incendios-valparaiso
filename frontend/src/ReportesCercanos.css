@@ -1,0 +1,67 @@
+/* =========================================================
+   REPORTES CERCANOS
+   ========================================================= */
+
+.admin-cercania-alerta {
+  display: flex;
+
+  gap: 9px;
+
+  margin-top: 12px;
+
+  padding: 10px;
+
+  border:
+    1px solid #bfdbfe;
+
+  border-radius: 7px;
+
+  background: #eff6ff;
+
+  color: #1e40af;
+
+  font-size: 9px;
+
+  line-height: 1.5;
+}
+
+
+.admin-cercania-icono {
+  flex-shrink: 0;
+
+  font-size: 15px;
+}
+
+
+.admin-cercania-contenido {
+  min-width: 0;
+}
+
+
+.admin-cercania-contenido strong {
+  display: block;
+
+  margin-bottom: 2px;
+
+  color: #1e3a8a;
+
+  font-size: 10px;
+}
+
+
+.admin-cercania-detalle {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #64748b;
+
+  font-size: 8px;
+}
+
+
+.admin-cercania-ids {
+  font-weight: 700;
+
+  color: #1e40af;
+}

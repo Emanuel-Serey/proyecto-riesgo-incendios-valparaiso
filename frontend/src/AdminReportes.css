@@ -1,0 +1,1190 @@
+/* =========================================================
+   PÁGINA ADMINISTRATIVA
+   ========================================================= */
+
+.admin-pagina {
+  min-height: 100vh;
+
+  background: #f1f5f9;
+
+  color: #0f172a;
+}
+
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+
+.admin-login-pagina {
+  min-height: 100vh;
+
+  background: #0f172a;
+}
+
+
+.admin-login-fondo {
+  min-height: 100vh;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(350px, 0.9fr)
+    minmax(450px, 1.1fr);
+}
+
+
+.admin-login-marca {
+  display: flex;
+
+  flex-direction: column;
+
+  justify-content: center;
+
+  padding: 70px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #111827,
+      #1e293b
+    );
+
+  color: white;
+}
+
+
+.admin-logo {
+  width: 70px;
+  height: 70px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 24px;
+
+  border-radius: 18px;
+
+  background:
+    rgba(255, 255, 255, 0.08);
+
+  font-size: 38px;
+}
+
+
+.admin-login-marca p {
+  margin:
+    0 0 7px;
+
+  color: #94a3b8;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  letter-spacing: 1.5px;
+}
+
+
+.admin-login-marca h1 {
+  max-width: 500px;
+
+  margin: 0;
+
+  font-size: 36px;
+
+  line-height: 1.15;
+}
+
+
+.admin-login-marca > span {
+  margin-top: 12px;
+
+  color: #cbd5e1;
+
+  font-size: 16px;
+}
+
+
+.admin-login-contenedor {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 40px;
+
+  background: #f8fafc;
+}
+
+
+.admin-login-card {
+  width: 100%;
+
+  max-width: 420px;
+
+  padding: 38px;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 16px;
+
+  background: white;
+
+  box-shadow:
+    0 15px 45px
+    rgba(15, 23, 42, 0.09);
+}
+
+
+.admin-login-icono {
+  width: 50px;
+  height: 50px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 18px;
+
+  border-radius: 12px;
+
+  background: #eff6ff;
+
+  font-size: 25px;
+}
+
+
+.admin-login-etiqueta {
+  margin:
+    0 0 4px;
+
+  color: #64748b;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  letter-spacing: 1px;
+}
+
+
+.admin-login-card h2 {
+  margin:
+    0 0 8px;
+
+  color: #0f172a;
+
+  font-size: 28px;
+}
+
+
+.admin-login-descripcion {
+  margin:
+    0 0 27px;
+
+  color: #64748b;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+}
+
+
+.admin-login-card form {
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+.admin-login-card label {
+  margin-bottom: 6px;
+
+  color: #334155;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+
+.admin-login-card input {
+  height: 44px;
+
+  padding:
+    0 12px;
+
+  margin-bottom: 16px;
+
+  border:
+    1px solid #cbd5e1;
+
+  border-radius: 8px;
+
+  color: #0f172a;
+
+  font-size: 14px;
+
+  outline: none;
+}
+
+
+.admin-login-card input:focus {
+  border-color: #2563eb;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(37, 99, 235, 0.1);
+}
+
+
+.admin-login-error {
+  margin-bottom: 14px;
+
+  padding: 11px 12px;
+
+  border-radius: 7px;
+
+  background: #fee2e2;
+
+  color: #991b1b;
+
+  font-size: 11px;
+}
+
+
+.admin-login-boton {
+  height: 46px;
+
+  border: 0;
+
+  border-radius: 8px;
+
+  background: #1d4ed8;
+
+  color: white;
+
+  font-size: 14px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.admin-login-boton:hover {
+  background: #1e40af;
+}
+
+
+.admin-login-boton:disabled {
+  opacity: 0.6;
+
+  cursor: wait;
+}
+
+
+.admin-volver-login {
+  display: block;
+
+  margin-top: 20px;
+
+  color: #64748b;
+
+  font-size: 12px;
+
+  text-align: center;
+
+  text-decoration: none;
+}
+
+
+.admin-volver-login:hover {
+  color: #1d4ed8;
+}
+
+
+/* =========================================================
+   TOP BAR
+   ========================================================= */
+
+.admin-topbar {
+  height: 82px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  padding:
+    0 30px;
+
+  background: #111827;
+
+  color: white;
+
+  border-bottom:
+    1px solid #273449;
+}
+
+
+.admin-topbar p {
+  margin:
+    0 0 2px;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+
+  text-transform: uppercase;
+
+  letter-spacing: 1px;
+}
+
+
+.admin-topbar h1 {
+  margin: 0;
+
+  font-size: 21px;
+}
+
+
+.admin-usuario {
+  display: flex;
+
+  align-items: center;
+
+  gap: 16px;
+}
+
+
+.admin-usuario-info {
+  text-align: right;
+}
+
+
+.admin-usuario-info span {
+  display: block;
+
+  color: #94a3b8;
+
+  font-size: 9px;
+}
+
+
+.admin-usuario-info strong {
+  color: white;
+
+  font-size: 12px;
+}
+
+
+.admin-usuario button {
+  padding:
+    8px 12px;
+
+  border:
+    1px solid #475569;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #e2e8f0;
+
+  font-size: 10px;
+
+  cursor: pointer;
+}
+
+
+.admin-usuario button:hover {
+  background: #1e293b;
+}
+
+
+/* =========================================================
+   LAYOUT ADMIN
+   ========================================================= */
+
+.admin-layout {
+  min-height:
+    calc(100vh - 82px);
+
+  display: grid;
+
+  grid-template-columns:
+    230px
+    minmax(0, 1fr);
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.admin-sidebar {
+  display: flex;
+
+  flex-direction: column;
+
+  padding: 22px 14px;
+
+  background: white;
+
+  border-right:
+    1px solid #e2e8f0;
+}
+
+
+.admin-sidebar-titulo {
+  padding:
+    0 10px 12px;
+
+  color: #94a3b8;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  letter-spacing: 1px;
+}
+
+
+.admin-sidebar nav {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+
+.admin-nav-item {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding:
+    10px 11px;
+
+  border: 0;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #475569;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  text-align: left;
+}
+
+
+.admin-nav-activo {
+  background: #eff6ff;
+
+  color: #1d4ed8;
+}
+
+
+.admin-sidebar-futuro {
+  margin-top: 18px;
+
+  padding: 12px;
+
+  border-radius: 8px;
+
+  background: #f8fafc;
+
+  color: #94a3b8;
+
+  font-size: 9px;
+
+  line-height: 1.5;
+}
+
+
+.admin-volver-mapa {
+  margin-top: auto;
+
+  padding: 11px;
+
+  color: #64748b;
+
+  font-size: 10px;
+
+  text-decoration: none;
+}
+
+
+.admin-volver-mapa:hover {
+  color: #1d4ed8;
+}
+
+
+/* =========================================================
+   CONTENIDO PRINCIPAL
+   ========================================================= */
+
+.admin-main {
+  padding: 28px;
+
+  overflow-x: hidden;
+}
+
+
+.admin-main-header {
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  margin-bottom: 22px;
+}
+
+
+.admin-seccion-etiqueta {
+  margin:
+    0 0 3px;
+
+  color: #64748b;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  letter-spacing: 1px;
+}
+
+
+.admin-main-header h2 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 25px;
+}
+
+
+.admin-seccion-descripcion {
+  max-width: 600px;
+
+  margin:
+    6px 0 0;
+
+  color: #64748b;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+.admin-actualizar {
+  padding:
+    9px 12px;
+
+  border:
+    1px solid #cbd5e1;
+
+  border-radius: 7px;
+
+  background: white;
+
+  color: #475569;
+
+  font-size: 10px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.admin-actualizar:hover {
+  background: #f8fafc;
+}
+
+
+/* =========================================================
+   RESUMEN
+   ========================================================= */
+
+.admin-resumen {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 12px;
+
+  margin-bottom: 22px;
+}
+
+
+.admin-resumen-card {
+  padding: 15px 17px;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 9px;
+
+  background: white;
+}
+
+
+.admin-resumen-card span {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #64748b;
+
+  font-size: 9px;
+
+  text-transform: uppercase;
+}
+
+
+.admin-resumen-card strong {
+  color: #0f172a;
+
+  font-size: 21px;
+}
+
+
+.admin-resumen-card .admin-sesion-activa {
+  color: #15803d;
+
+  font-size: 15px;
+}
+
+
+.admin-resumen-card .admin-auth-label {
+  color: #1d4ed8;
+
+  font-size: 15px;
+}
+
+
+/* =========================================================
+   REPORTES
+   ========================================================= */
+
+.admin-reportes-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fill,
+      minmax(
+        310px,
+        1fr
+      )
+    );
+
+  gap: 17px;
+}
+
+
+.admin-reporte-card {
+  overflow: hidden;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 11px;
+
+  background: white;
+
+  box-shadow:
+    0 2px 6px
+    rgba(15, 23, 42, 0.04);
+}
+
+
+.admin-reporte-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  padding:
+    13px 15px;
+}
+
+
+.admin-reporte-header span {
+  display: block;
+
+  color: #94a3b8;
+
+  font-size: 8px;
+
+  text-transform: uppercase;
+}
+
+
+.admin-reporte-header strong {
+  color: #0f172a;
+
+  font-size: 16px;
+}
+
+
+.admin-badge-pendiente {
+  padding:
+    5px 9px;
+
+  border-radius: 999px;
+
+  background: #fef3c7;
+
+  color: #92400e;
+
+  font-size: 8px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+}
+
+
+.admin-reporte-imagen {
+  width: 100%;
+  height: 210px;
+
+  display: block;
+
+  object-fit: cover;
+
+  background: #e2e8f0;
+}
+
+
+.admin-imagen-vacia {
+  height: 210px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  background: #e2e8f0;
+
+  color: #64748b;
+
+  font-size: 11px;
+}
+
+
+.admin-reporte-body {
+  padding: 15px;
+}
+
+
+.admin-descripcion span {
+  color: #94a3b8;
+
+  font-size: 8px;
+
+  text-transform: uppercase;
+}
+
+
+.admin-descripcion p {
+  min-height: 34px;
+
+  margin:
+    4px 0 14px;
+
+  color: #334155;
+
+  font-size: 11px;
+
+  line-height: 1.45;
+}
+
+
+.admin-datos {
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 7px;
+}
+
+
+.admin-datos > div {
+  padding: 9px;
+
+  border-radius: 7px;
+
+  background: #f8fafc;
+}
+
+
+.admin-datos span {
+  display: block;
+
+  color: #94a3b8;
+
+  font-size: 8px;
+}
+
+
+.admin-datos strong {
+  display: block;
+
+  margin-top: 2px;
+
+  color: #0f172a;
+
+  font-size: 10px;
+}
+
+
+.admin-reporte-acciones {
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 8px;
+
+  margin-top: 14px;
+}
+
+
+.admin-reporte-acciones button {
+  height: 40px;
+
+  border-radius: 7px;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+.admin-boton-rechazar {
+  border:
+    1px solid #fecaca;
+
+  background: #fff1f2;
+
+  color: #b91c1c;
+}
+
+
+.admin-boton-rechazar:hover {
+  background: #fee2e2;
+}
+
+
+.admin-boton-confirmar {
+  border: 0;
+
+  background: #16a34a;
+
+  color: white;
+}
+
+
+.admin-boton-confirmar:hover {
+  background: #15803d;
+}
+
+
+.admin-reporte-acciones button:disabled {
+  opacity: 0.6;
+
+  cursor: wait;
+}
+
+
+/* =========================================================
+   ESTADOS
+   ========================================================= */
+
+.admin-panel-error {
+  margin-bottom: 18px;
+
+  padding: 12px 14px;
+
+  border-radius: 7px;
+
+  background: #fee2e2;
+
+  color: #991b1b;
+
+  font-size: 11px;
+}
+
+
+.admin-estado-vacio {
+  min-height: 280px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 10px;
+
+  background: white;
+
+  text-align: center;
+}
+
+
+.admin-estado-vacio strong {
+  margin-top: 10px;
+
+  color: #334155;
+
+  font-size: 14px;
+}
+
+
+.admin-estado-vacio p {
+  margin:
+    5px 0 0;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+}
+
+
+.admin-check {
+  width: 46px;
+  height: 46px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #dcfce7;
+
+  color: #15803d;
+
+  font-size: 23px;
+}
+
+
+.admin-cargando-pagina {
+  min-height: 100vh;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  color: #475569;
+}
+
+
+.admin-cargando-pagina span {
+  margin-top: 5px;
+
+  color: #94a3b8;
+
+  font-size: 11px;
+}
+
+
+.admin-spinner {
+  width: 28px;
+  height: 28px;
+
+  margin-bottom: 10px;
+
+  border:
+    3px solid #cbd5e1;
+
+  border-top-color:
+    #2563eb;
+
+  border-radius: 50%;
+
+  animation:
+    admin-girar
+    0.7s
+    linear
+    infinite;
+}
+
+
+@keyframes admin-girar {
+
+  to {
+    transform:
+      rotate(360deg);
+  }
+
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (
+  max-width: 800px
+) {
+
+  .admin-login-fondo {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .admin-login-marca {
+    display: none;
+  }
+
+
+  .admin-login-contenedor {
+    min-height: 100vh;
+
+    padding: 20px;
+  }
+
+
+  .admin-layout {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .admin-sidebar {
+    display: none;
+  }
+
+
+  .admin-topbar {
+    padding:
+      0 16px;
+  }
+
+
+  .admin-main {
+    padding: 18px;
+  }
+
+
+  .admin-resumen {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .admin-main-header {
+    flex-direction: column;
+  }
+
+
+  .admin-reportes-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+}
+
+.admin-badge-manual {
+  display: block;
+
+  width: fit-content;
+
+  margin-top: 4px;
+
+  padding: 3px 7px;
+
+  border-radius: 999px;
+
+  background: #dbeafe;
+
+  color: #1d4ed8;
+
+  font-size: 8px;
+  font-weight: 700;
+}
+
+
+.admin-antiguedad {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #64748b;
+
+  font-size: 8px;
+  font-weight: 500;
+}
+
+
+.admin-aviso-manual {
+  display: flex;
+
+  gap: 8px;
+
+  margin-top: 12px;
+
+  padding: 10px;
+
+  border:
+    1px solid #bfdbfe;
+
+  border-radius: 7px;
+
+  background: #eff6ff;
+
+  color: #1e40af;
+
+  font-size: 9px;
+
+  line-height: 1.45;
+}
+
+
+.admin-aviso-manual strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #1e3a8a;
+
+  font-size: 10px;
+}

@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
+
 import {
   GeoJSON,
   MapContainer,
+  Marker,
+  Popup,
   TileLayer,
   ZoomControl,
   useMap,
 } from 'react-leaflet'
 
 import './App.css'
+
+import AdminReportes from './AdminReportes'
+import ReporteIncendio from './ReporteIncendio'
 
 
 const COMUNAS = [
@@ -51,20 +57,46 @@ const COMUNAS = [
 ]
 
 
-function ConfigurarMapa({ regionGeojson }) {
+const iconoIncendio = L.divIcon({
+  className: 'marcador-incendio',
+
+  html: `
+    <div class="marcador-incendio-icono">
+      🔥
+    </div>
+  `,
+
+  iconSize: [42, 42],
+  iconAnchor: [21, 21],
+  popupAnchor: [0, -20],
+})
+
+
+function ConfigurarMapa({
+  regionGeojson
+}) {
   const map = useMap()
+
 
   useEffect(() => {
     if (!regionGeojson) {
       return
     }
 
-    const capa = L.geoJSON(regionGeojson)
-    const bounds = capa.getBounds()
+
+    const capa =
+      L.geoJSON(
+        regionGeojson
+      )
+
+    const bounds =
+      capa.getBounds()
+
 
     if (!bounds.isValid()) {
       return
     }
+
 
     map.setView(
       [-32.9, -71.15],
@@ -74,177 +106,541 @@ function ConfigurarMapa({ regionGeojson }) {
       }
     )
 
+
     map.setMinZoom(9)
 
-    const limites = bounds.pad(0.08)
 
-    map.setMaxBounds(limites)
+    const limites =
+      bounds.pad(0.08)
 
-  }, [regionGeojson, map])
+
+    map.setMaxBounds(
+      limites
+    )
+
+  }, [
+    regionGeojson,
+    map
+  ])
+
 
   return null
 }
 
+function formatearFechaReportePublico(
+  fecha
+) {
+  if (!fecha) {
+    return '-'
+  }
+
+  const valor =
+    new Date(fecha)
+
+  if (
+    Number.isNaN(
+      valor.getTime()
+    )
+  ) {
+    return '-'
+  }
+
+  return valor.toLocaleDateString(
+    'es-CL',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'America/Santiago',
+    }
+  )
+}
+
+
+function formatearHoraReportePublico(
+  fecha
+) {
+  if (!fecha) {
+    return '-'
+  }
+
+  const valor =
+    new Date(fecha)
+
+  if (
+    Number.isNaN(
+      valor.getTime()
+    )
+  ) {
+    return '-'
+  }
+
+  return valor.toLocaleTimeString(
+    'es-CL',
+    {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'America/Santiago',
+    }
+  )
+}
+
+
+function antiguedadReportePublico(
+  fecha
+) {
+  if (!fecha) {
+    return ''
+  }
+
+  const valor =
+    new Date(fecha)
+
+  if (
+    Number.isNaN(
+      valor.getTime()
+    )
+  ) {
+    return ''
+  }
+
+  const diferencia =
+    Date.now() -
+    valor.getTime()
+
+  const minutos =
+    Math.floor(
+      diferencia / 60000
+    )
+
+  if (minutos < 1) {
+    return 'Hace menos de 1 min'
+  }
+
+  if (minutos < 60) {
+    return `Hace ${minutos} min`
+  }
+
+  const horas =
+    Math.floor(
+      minutos / 60
+    )
+
+  if (horas < 24) {
+    return horas === 1
+      ? 'Hace 1 hora'
+      : `Hace ${horas} horas`
+  }
+
+  const dias =
+    Math.floor(
+      horas / 24
+    )
+
+  return dias === 1
+    ? 'Hace 1 día'
+    : `Hace ${dias} días`
+}
 
 function App() {
-  const [estadoSistema, setEstadoSistema] = useState('verificando')
-  const [comuna, setComuna] = useState('Valparaíso')
-  const [resultado, setResultado] = useState(null)
+  const [
+    estadoSistema,
+    setEstadoSistema
+  ] = useState(
+    'verificando'
+  )
 
-  const [comunasGeojson, setComunasGeojson] = useState(null)
-  const [regionGeojson, setRegionGeojson] = useState(null)
-  const [mascaraGeojson, setMascaraGeojson] = useState(null)
 
-  const [cargando, setCargando] = useState(false)
-  const [error, setError] = useState('')
+  const [
+    comuna,
+    setComuna
+  ] = useState(
+    'Valparaíso'
+  )
 
-  const geoJsonRef = useRef()
 
+  const [
+    resultado,
+    setResultado
+  ] = useState(null)
+
+
+  const [
+    comunasGeojson,
+    setComunasGeojson
+  ] = useState(null)
+
+
+  const [
+    regionGeojson,
+    setRegionGeojson
+  ] = useState(null)
+
+
+  const [
+    mascaraGeojson,
+    setMascaraGeojson
+  ] = useState(null)
+
+
+  const [
+    reportesConfirmados,
+    setReportesConfirmados
+  ] = useState([])
+
+
+  const [
+    cargando,
+    setCargando
+  ] = useState(false)
+
+
+  const [
+    error,
+    setError
+  ] = useState('')
+
+
+  const geoJsonRef =
+    useRef()
+
+
+  // =========================================================
+  // CARTOGRAFÍA
+  // =========================================================
 
   useEffect(() => {
-    const cargarCartografia = async () => {
-      try {
-        const [
-          respuestaComunas,
-          respuestaRegion,
-          respuestaMascara,
-        ] = await Promise.all([
-          fetch('/data/comunas_valparaiso.geojson'),
-          fetch('/data/region_valparaiso.geojson'),
-          fetch('/data/mascara_valparaiso.geojson'),
-        ])
 
-        if (
-          !respuestaComunas.ok ||
-          !respuestaRegion.ok ||
-          !respuestaMascara.ok
-        ) {
-          throw new Error(
-            'No fue posible cargar la cartografía'
+    const cargarCartografia =
+      async () => {
+
+        try {
+          const [
+            respuestaComunas,
+            respuestaRegion,
+            respuestaMascara,
+          ] = await Promise.all([
+            fetch(
+              '/data/comunas_valparaiso.geojson'
+            ),
+
+            fetch(
+              '/data/region_valparaiso.geojson'
+            ),
+
+            fetch(
+              '/data/mascara_valparaiso.geojson'
+            ),
+          ])
+
+
+          if (
+            !respuestaComunas.ok ||
+            !respuestaRegion.ok ||
+            !respuestaMascara.ok
+          ) {
+            throw new Error(
+              'No fue posible cargar la cartografía'
+            )
+          }
+
+
+          const [
+            comunas,
+            region,
+            mascara,
+          ] = await Promise.all([
+            respuestaComunas.json(),
+            respuestaRegion.json(),
+            respuestaMascara.json(),
+          ])
+
+
+          setComunasGeojson(
+            comunas
+          )
+
+          setRegionGeojson(
+            region
+          )
+
+          setMascaraGeojson(
+            mascara
+          )
+
+        } catch (err) {
+          setError(
+            err.message
           )
         }
 
-        const [
-          comunas,
-          region,
-          mascara,
-        ] = await Promise.all([
-          respuestaComunas.json(),
-          respuestaRegion.json(),
-          respuestaMascara.json(),
-        ])
-
-        setComunasGeojson(comunas)
-        setRegionGeojson(region)
-        setMascaraGeojson(mascara)
-
-      } catch (err) {
-        setError(err.message)
       }
-    }
+
 
     cargarCartografia()
+
   }, [])
+
+
+  // =========================================================
+  // ESTADO GENERAL
+  // =========================================================
 
   useEffect(() => {
-  let activo = true
+    let activo = true
 
-  const verificarSistema = async () => {
-    try {
-      const respuesta = await fetch(
-        '/api/health/system',
-        {
-          cache: 'no-store',
-        }
-      )
 
-      const datos = await respuesta.json()
-
-      if (!activo) {
-        return
-      }
-
-      if (datos.status === 'ok') {
-        setEstadoSistema('operativo')
-      } else {
-        setEstadoSistema('degradado')
-      }
-
-    } catch {
-      if (activo) {
-        setEstadoSistema('desconectado')
-      }
-    }
-  }
-
-  verificarSistema()
-
-  const intervalo = setInterval(
-    verificarSistema,
-    30000
-  )
-
-  return () => {
-    activo = false
-    clearInterval(intervalo)
-  }
-  }, [])
-
-  const consultarRiesgo = async (
-    comunaSeleccionada = comuna
-  ) => {
-    setCargando(true)
-    setError('')
-
-    try {
-      const respuesta = await fetch(
-        `/api/riesgo/${encodeURIComponent(
-          comunaSeleccionada
-        )}`
-      )
-
-      if (!respuesta.ok) {
-        let mensaje =
-          'No fue posible consultar el riesgo'
+    const verificarSistema =
+      async () => {
 
         try {
-          const detalle = await respuesta.json()
+          const respuesta =
+            await fetch(
+              '/api/health/system',
+              {
+                cache:
+                  'no-store',
+              }
+            )
 
-          if (detalle.detail) {
-            mensaje = detalle.detail
+
+          const datos =
+            await respuesta.json()
+
+
+          if (!activo) {
+            return
+          }
+
+
+          if (
+            datos.status ===
+            'ok'
+          ) {
+            setEstadoSistema(
+              'operativo'
+            )
+
+          } else {
+            setEstadoSistema(
+              'degradado'
+            )
           }
 
         } catch {
-          // Se mantiene el mensaje genérico.
+          if (activo) {
+            setEstadoSistema(
+              'desconectado'
+            )
+          }
         }
 
-        throw new Error(mensaje)
       }
 
-      const datos = await respuesta.json()
 
-      setComuna(comunaSeleccionada)
-      setResultado(datos)
+    verificarSistema()
 
-    } catch (err) {
-      setResultado(null)
-      setError(err.message)
 
-    } finally {
-      setCargando(false)
+    const intervalo =
+      setInterval(
+        verificarSistema,
+        30000
+      )
+
+
+    return () => {
+      activo = false
+
+      clearInterval(
+        intervalo
+      )
     }
-  }
+
+  }, [])
 
 
-  const obtenerColor = (nombreComuna) => {
+  // =========================================================
+  // REPORTES CONFIRMADOS
+  // =========================================================
+
+  useEffect(() => {
+    let activo = true
+
+
+    const cargarReportes =
+      async () => {
+
+        try {
+          const respuesta =
+            await fetch(
+              '/api/reportes/confirmados',
+              {
+                cache:
+                  'no-store',
+              }
+            )
+
+
+          if (!respuesta.ok) {
+            throw new Error(
+              'No fue posible cargar los reportes'
+            )
+          }
+
+
+          const datos =
+            await respuesta.json()
+
+
+          if (activo) {
+            setReportesConfirmados(
+              datos
+            )
+          }
+
+        } catch {
+          if (activo) {
+            setReportesConfirmados(
+              []
+            )
+          }
+        }
+
+      }
+
+
+    cargarReportes()
+
+
+    const intervalo =
+      setInterval(
+        cargarReportes,
+        30000
+      )
+
+
+    window.addEventListener(
+      'reportes-actualizados',
+      cargarReportes
+    )
+
+
+    return () => {
+      activo = false
+
+      clearInterval(
+        intervalo
+      )
+
+      window.removeEventListener(
+        'reportes-actualizados',
+        cargarReportes
+      )
+    }
+
+  }, [])
+
+
+  // =========================================================
+  // CONSULTA DE RIESGO
+  // =========================================================
+
+  const consultarRiesgo =
+    async (
+      comunaSeleccionada =
+        comuna
+    ) => {
+
+      setCargando(true)
+      setError('')
+
+
+      try {
+        const respuesta =
+          await fetch(
+            `/api/riesgo/${
+              encodeURIComponent(
+                comunaSeleccionada
+              )
+            }`
+          )
+
+
+        if (!respuesta.ok) {
+          let mensaje =
+            'No fue posible consultar el riesgo'
+
+
+          try {
+            const detalle =
+              await respuesta.json()
+
+
+            if (
+              detalle.detail
+            ) {
+              mensaje =
+                detalle.detail
+            }
+
+          } catch {
+            // Mensaje genérico.
+          }
+
+
+          throw new Error(
+            mensaje
+          )
+        }
+
+
+        const datos =
+          await respuesta.json()
+
+
+        setComuna(
+          comunaSeleccionada
+        )
+
+        setResultado(
+          datos
+        )
+
+      } catch (err) {
+        setResultado(null)
+
+        setError(
+          err.message
+        )
+
+      } finally {
+        setCargando(false)
+      }
+    }
+
+
+  // =========================================================
+  // COLORES
+  // =========================================================
+
+  const obtenerColor = (
+    nombreComuna
+  ) => {
+
     if (
       !resultado ||
-      resultado.comuna !== nombreComuna
+      resultado.comuna !==
+        nombreComuna
     ) {
       return '#e2e8f0'
     }
 
-    switch (resultado.nivel_riesgo) {
+
+    switch (
+      resultado.nivel_riesgo
+    ) {
+
       case 'Bajo':
         return '#16a34a'
 
@@ -260,29 +656,44 @@ function App() {
   }
 
 
-  const estiloComuna = (feature) => ({
+  const estiloComuna = (
+    feature
+  ) => ({
     color: '#475569',
+
     weight: 1.25,
 
-    fillColor: obtenerColor(
-      feature.properties.comuna
-    ),
+    fillColor:
+      obtenerColor(
+        feature.properties.comuna
+      ),
 
     fillOpacity: 0.7,
   })
 
 
   const estiloMascara = {
-    color: 'transparent',
+    color:
+      'transparent',
+
     weight: 0,
-    fillColor: '#334155',
-    fillOpacity: 0.26,
+
+    fillColor:
+      '#334155',
+
+    fillOpacity:
+      0.26,
   }
 
 
-  const onEachFeature = (feature, layer) => {
+  const onEachFeature = (
+    feature,
+    layer
+  ) => {
+
     const nombreComuna =
       feature.properties.comuna
+
 
     layer.bindTooltip(
       nombreComuna,
@@ -292,40 +703,70 @@ function App() {
       }
     )
 
+
     layer.on({
+
       click: () => {
-        setComuna(nombreComuna)
-        consultarRiesgo(nombreComuna)
+        setComuna(
+          nombreComuna
+        )
+
+        consultarRiesgo(
+          nombreComuna
+        )
       },
 
-      mouseover: (evento) => {
+
+      mouseover: (
+        evento
+      ) => {
+
         evento.target.setStyle({
           weight: 2.5,
-          color: '#111827',
-          fillOpacity: 0.85,
+
+          color:
+            '#111827',
+
+          fillOpacity:
+            0.85,
         })
+
       },
 
-      mouseout: (evento) => {
-        if (geoJsonRef.current) {
+
+      mouseout: (
+        evento
+      ) => {
+
+        if (
+          geoJsonRef.current
+        ) {
           geoJsonRef.current.resetStyle(
             evento.target
           )
         }
+
       },
+
     })
   }
 
 
-  const claseRiesgo = resultado
-    ? `riesgo riesgo-${resultado.nivel_riesgo.toLowerCase()}`
-    : 'riesgo riesgo-sin-datos'
+  // =========================================================
+  // UTILIDADES
+  // =========================================================
+
+  const claseRiesgo =
+    resultado
+      ? `riesgo riesgo-${resultado.nivel_riesgo.toLowerCase()}`
+      : 'riesgo riesgo-sin-datos'
 
 
   const formatearNumero = (
     valor,
     decimales = 1
   ) => {
+
     if (
       valor === null ||
       valor === undefined
@@ -333,11 +774,19 @@ function App() {
       return '-'
     }
 
-    return Number(valor).toFixed(decimales)
+
+    return Number(
+      valor
+    ).toFixed(
+      decimales
+    )
   }
 
 
-  const convertirNudosAKmh = (nudos) => {
+  const convertirNudosAKmh = (
+    nudos
+  ) => {
+
     if (
       nudos === null ||
       nudos === undefined
@@ -345,38 +794,76 @@ function App() {
       return null
     }
 
-    return Number(nudos) * 1.852
+
+    return (
+      Number(nudos) *
+      1.852
+    )
   }
 
 
-  const obtenerTextoDireccion = (direccion) => {
-    if (direccion === 'aumenta') {
-      return 'Contribuye a una evaluación de mayor riesgo'
+  const obtenerTextoDireccion = (
+    direccion
+  ) => {
+
+    if (
+      direccion ===
+      'aumenta'
+    ) {
+      return (
+        'Contribuye a una evaluación de mayor riesgo'
+      )
     }
 
-    if (direccion === 'reduce') {
-      return 'Contribuye a una evaluación de menor riesgo'
+
+    if (
+      direccion ===
+      'reduce'
+    ) {
+      return (
+        'Contribuye a una evaluación de menor riesgo'
+      )
     }
 
-    return 'Tiene una influencia neutra en esta evaluación'
+
+    return (
+      'Tiene una influencia neutra en esta evaluación'
+    )
   }
 
 
-  const obtenerSimboloDireccion = (direccion) => {
-    if (direccion === 'aumenta') {
+  const obtenerSimboloDireccion = (
+    direccion
+  ) => {
+
+    if (
+      direccion ===
+      'aumenta'
+    ) {
       return '↑'
     }
 
-    if (direccion === 'reduce') {
+
+    if (
+      direccion ===
+      'reduce'
+    ) {
       return '↓'
     }
+
 
     return '•'
   }
 
 
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
+
     <div className="app">
+
 
       <header className="header">
 
@@ -386,9 +873,11 @@ function App() {
             Sistema inteligente de prevención
           </p>
 
+
           <h1>
             Riesgo de Incendios Forestales
           </h1>
+
 
           <p>
             Región de Valparaíso
@@ -398,21 +887,41 @@ function App() {
 
 
         <div
-          className={`estado-sistema estado-${estadoSistema}`}
+          className={
+            `estado-sistema estado-${estadoSistema}`
+          }
         >
+
           <span className="estado-dot" />
 
-          {estadoSistema === 'operativo' &&
-            'Sistema operativo'}
 
-          {estadoSistema === 'degradado' &&
-            'Servicio parcialmente disponible'}
+          {
+            estadoSistema ===
+            'operativo' &&
+            'Sistema operativo'
+          }
 
-          {estadoSistema === 'desconectado' &&
-            'Servicio no disponible'}
 
-          {estadoSistema === 'verificando' &&
-            'Verificando sistema...'}
+          {
+            estadoSistema ===
+            'degradado' &&
+            'Servicio parcialmente disponible'
+          }
+
+
+          {
+            estadoSistema ===
+            'desconectado' &&
+            'Servicio no disponible'
+          }
+
+
+          {
+            estadoSistema ===
+            'verificando' &&
+            'Verificando sistema...'
+          }
+
         </div>
 
       </header>
@@ -420,23 +929,43 @@ function App() {
 
       <main className="contenido">
 
+
         <section className="mapa-contenedor">
+
 
           <MapContainer
             key="mapa-valparaiso-v8"
-            center={[-32.9, -71.15]}
+
+            center={[
+              -32.9,
+              -71.15
+            ]}
+
             zoom={9}
+
             minZoom={9}
+
             maxZoom={14}
+
             zoomControl={false}
+
             maxBoundsViscosity={1.0}
+
             worldCopyJump={false}
+
             className="mapa"
           >
 
+
             <TileLayer
-              attribution="&copy; OpenStreetMap contributors"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution={
+                '&copy; OpenStreetMap contributors'
+              }
+
+              url={
+                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+              }
+
               noWrap={true}
             />
 
@@ -444,9 +973,17 @@ function App() {
             {mascaraGeojson && (
 
               <GeoJSON
-                data={mascaraGeojson}
-                style={estiloMascara}
-                interactive={false}
+                data={
+                  mascaraGeojson
+                }
+
+                style={
+                  estiloMascara
+                }
+
+                interactive={
+                  false
+                }
               />
 
             )}
@@ -457,22 +994,200 @@ function App() {
               <GeoJSON
                 key={
                   resultado
-                    ? `${resultado.comuna}-${resultado.nivel_riesgo}`
+                    ? `${
+                        resultado.comuna
+                      }-${
+                        resultado.nivel_riesgo
+                      }`
                     : 'sin-riesgo'
                 }
-                ref={geoJsonRef}
-                data={comunasGeojson}
-                style={estiloComuna}
-                onEachFeature={onEachFeature}
+
+                ref={
+                  geoJsonRef
+                }
+
+                data={
+                  comunasGeojson
+                }
+
+                style={
+                  estiloComuna
+                }
+
+                onEachFeature={
+                  onEachFeature
+                }
               />
 
+            )}
+
+
+            {reportesConfirmados.map(
+              (
+                reporte
+              ) => (
+
+                <Marker
+                  key={
+                    reporte.id_reporte
+                  }
+
+                  position={[
+                    Number(
+                      reporte.latitud
+                    ),
+
+                    Number(
+                      reporte.longitud
+                    ),
+                  ]}
+
+                  icon={
+                    iconoIncendio
+                  }
+                >
+
+                  <Popup
+                    minWidth={280}
+                    maxWidth={320}
+                  >
+
+                    <div className="reporte-popup-publico">
+
+
+                      <div className="reporte-popup-titulo">
+
+                        🔥 Reporte ciudadano validado
+
+                      </div>
+
+
+                      {reporte.imagen_url && (
+
+                        <img
+                          className="reporte-popup-imagen"
+
+                          src={
+                            `/api${reporte.imagen_url}`
+                          }
+
+                          alt="Evidencia del reporte ciudadano"
+                        />
+
+                      )}
+
+
+                      <div className="reporte-popup-descripcion">
+
+                        <span>
+                          Descripción enviada por el ciudadano
+                        </span>
+
+
+                        <p>
+
+                          {
+                            reporte.descripcion ||
+                            'El ciudadano no agregó una descripción.'
+                          }
+
+                        </p>
+
+                      </div>
+
+
+                      <div className="reporte-popup-datos">
+
+
+                        <div>
+
+                          <span>
+                            Fecha
+                          </span>
+
+                          <strong>
+
+                            {
+                              formatearFechaReportePublico(
+                                reporte.fecha_reporte
+                              )
+                            }
+
+                          </strong>
+
+                        </div>
+
+
+                        <div>
+
+                          <span>
+                            Hora
+                          </span>
+
+                          <strong>
+
+                            {
+                              formatearHoraReportePublico(
+                                reporte.fecha_reporte
+                              )
+                            }
+
+                          </strong>
+
+
+                          <small>
+
+                            {
+                              antiguedadReportePublico(
+                                reporte.fecha_reporte
+                              )
+                            }
+
+                          </small>
+
+                        </div>
+
+
+                      </div>
+
+
+                      <div className="reporte-popup-revisado">
+
+                        <span>
+                          ✓
+                        </span>
+
+                        Reporte revisado
+
+                      </div>
+
+
+                      <div className="reporte-popup-aviso">
+
+                        Este reporte fue enviado por un
+                        ciudadano y revisado dentro de la
+                        plataforma. No corresponde a una
+                        confirmación oficial de emergencia.
+
+                      </div>
+
+
+                    </div>
+
+                  </Popup>
+
+                </Marker>
+
+              )
             )}
 
 
             {regionGeojson && (
 
               <ConfigurarMapa
-                regionGeojson={regionGeojson}
+                regionGeojson={
+                  regionGeojson
+                }
               />
 
             )}
@@ -482,7 +1197,14 @@ function App() {
               position="bottomleft"
             />
 
+
           </MapContainer>
+
+
+          <ReporteIncendio />
+
+
+          <AdminReportes />
 
 
           <div className="mapa-etiqueta">
@@ -498,28 +1220,59 @@ function App() {
 
           <div className="leyenda-mapa">
 
+
             <div className="leyenda-titulo">
               Nivel de riesgo
             </div>
 
+
             <div className="leyenda-item">
+
               <span className="leyenda-color leyenda-bajo" />
+
               Bajo
+
             </div>
 
+
             <div className="leyenda-item">
+
               <span className="leyenda-color leyenda-medio" />
+
               Medio
+
             </div>
 
+
             <div className="leyenda-item">
+
               <span className="leyenda-color leyenda-alto" />
+
               Alto
+
             </div>
 
+
             <div className="leyenda-item">
+
               <span className="leyenda-color leyenda-sin-evaluar" />
+
               Sin evaluar
+
+            </div>
+
+
+            <div className="leyenda-separador" />
+
+
+            <div className="leyenda-item">
+
+              <span className="leyenda-incendio">
+                🔥
+              </span>
+
+              Reporte validado
+
             </div>
 
           </div>
@@ -528,6 +1281,7 @@ function App() {
 
 
         <aside className="panel">
+
 
           <div>
 
@@ -549,24 +1303,49 @@ function App() {
 
           <select
             id="comuna"
+
             value={comuna}
-            onChange={(e) => {
-              setComuna(e.target.value)
-              setResultado(null)
-              setError('')
+
+            onChange={(
+              evento
+            ) => {
+
+              setComuna(
+                evento.target.value
+              )
+
+              setResultado(
+                null
+              )
+
+              setError(
+                ''
+              )
+
             }}
           >
 
-            {COMUNAS.map((nombre) => (
+            {COMUNAS.map(
+              (
+                nombre
+              ) => (
 
-              <option
-                key={nombre}
-                value={nombre}
-              >
-                {nombre}
-              </option>
+                <option
+                  key={
+                    nombre
+                  }
 
-            ))}
+                  value={
+                    nombre
+                  }
+                >
+
+                  {nombre}
+
+                </option>
+
+              )
+            )}
 
           </select>
 
@@ -575,7 +1354,10 @@ function App() {
             onClick={() =>
               consultarRiesgo()
             }
-            disabled={cargando}
+
+            disabled={
+              cargando
+            }
           >
 
             {
@@ -596,17 +1378,20 @@ function App() {
           )}
 
 
-          {!resultado && !error && (
+          {
+            !resultado &&
+            !error && (
 
-            <div className="estado-inicial">
+              <div className="estado-inicial">
 
-              Selecciona una comuna en el mapa
-              o en la lista para consultar su
-              nivel de riesgo.
+                Selecciona una comuna en el mapa
+                o en la lista para consultar su
+                nivel de riesgo.
 
-            </div>
+              </div>
 
-          )}
+            )
+          }
 
 
           {resultado && (
@@ -620,25 +1405,33 @@ function App() {
                   Nivel de riesgo
                 </span>
 
+
                 <strong>
-                  {resultado.nivel_riesgo}
+                  {
+                    resultado.nivel_riesgo
+                  }
                 </strong>
 
 
                 <div className="indice-riesgo">
 
                   <span>
+
                     Índice de riesgo:{' '}
 
-                    {formatearNumero(
-                      resultado.score_modelo,
-                      3
-                    )}
+                    {
+                      formatearNumero(
+                        resultado.score_modelo,
+                        3
+                      )
+                    }
+
                   </span>
 
 
                   <span
                     className="info-indice"
+
                     title={
                       'El índice resume la evaluación del sistema. ' +
                       'No representa una probabilidad exacta de que ocurra un incendio.'
@@ -663,10 +1456,12 @@ function App() {
 
                   <strong>
 
-                    {formatearNumero(
-                      resultado.temperatura_media,
-                      1
-                    )}
+                    {
+                      formatearNumero(
+                        resultado.temperatura_media,
+                        1
+                      )
+                    }
 
                     {' °C'}
 
@@ -687,10 +1482,12 @@ function App() {
 
                   <strong>
 
-                    {formatearNumero(
-                      resultado.humedad_media,
-                      1
-                    )}
+                    {
+                      formatearNumero(
+                        resultado.humedad_media,
+                        1
+                      )
+                    }
 
                     {' %'}
 
@@ -711,12 +1508,14 @@ function App() {
 
                   <strong>
 
-                    {formatearNumero(
-                      convertirNudosAKmh(
-                        resultado.viento_medio
-                      ),
-                      1
-                    )}
+                    {
+                      formatearNumero(
+                        convertirNudosAKmh(
+                          resultado.viento_medio
+                        ),
+                        1
+                      )
+                    }
 
                     {' km/h'}
 
@@ -736,7 +1535,9 @@ function App() {
                   </span>
 
                   <strong>
-                    {resultado.vegetacion_cobertura}
+                    {
+                      resultado.vegetacion_cobertura
+                    }
                   </strong>
 
                   <small>
@@ -756,10 +1557,12 @@ function App() {
 
                 <strong>
 
-                  {formatearNumero(
-                    resultado.incendios_historicos,
-                    1
-                  )}
+                  {
+                    formatearNumero(
+                      resultado.incendios_historicos,
+                      1
+                    )
+                  }
 
                   {' incendios/año'}
 
@@ -768,68 +1571,88 @@ function App() {
               </div>
 
 
-              {resultado.factores_principales &&
+              {
+                resultado.factores_principales &&
                 resultado.factores_principales.length > 0 && (
 
                   <div className="factores">
+
 
                     <div className="factores-titulo">
                       Factores que influyen en esta evaluación
                     </div>
 
+
                     <div className="factores-lista">
 
-                      {resultado.factores_principales.map(
-                        (factor) => (
+                      {
+                        resultado.factores_principales.map(
+                          (
+                            factor
+                          ) => (
 
-                          <div
-                            className={`factor factor-${factor.direccion}`}
-                            key={factor.variable}
-                          >
+                            <div
+                              className={
+                                `factor factor-${factor.direccion}`
+                              }
 
-                            <div className="factor-icono">
+                              key={
+                                factor.variable
+                              }
+                            >
 
-                              {obtenerSimboloDireccion(
-                                factor.direccion
-                              )}
+                              <div className="factor-icono">
+
+                                {
+                                  obtenerSimboloDireccion(
+                                    factor.direccion
+                                  )
+                                }
+
+                              </div>
+
+
+                              <div className="factor-contenido">
+
+                                <strong>
+                                  {
+                                    factor.nombre
+                                  }
+                                </strong>
+
+                                <span>
+
+                                  {
+                                    obtenerTextoDireccion(
+                                      factor.direccion
+                                    )
+                                  }
+
+                                </span>
+
+                              </div>
 
                             </div>
 
-
-                            <div className="factor-contenido">
-
-                              <strong>
-                                {factor.nombre}
-                              </strong>
-
-                              <span>
-
-                                {obtenerTextoDireccion(
-                                  factor.direccion
-                                )}
-
-                              </span>
-
-                            </div>
-
-                          </div>
-
+                          )
                         )
-                      )}
+                      }
 
                     </div>
 
 
                     <div className="factores-nota">
 
-                      Se muestran los factores con mayor
-                      influencia en la evaluación actual.
+                      Se muestran los factores
+                      con mayor influencia en la
+                      evaluación actual.
 
                     </div>
 
                   </div>
 
-                )}
+                )
+              }
 
 
               <div className="fechas">
@@ -839,7 +1662,9 @@ function App() {
                   Fecha evaluada:{' '}
 
                   <b>
-                    {resultado.fecha_prediccion}
+                    {
+                      resultado.fecha_prediccion
+                    }
                   </b>
 
                 </span>
@@ -850,7 +1675,9 @@ function App() {
                   Meteorología utilizada:{' '}
 
                   <b>
-                    {resultado.fecha_meteorologia}
+                    {
+                      resultado.fecha_meteorologia
+                    }
                   </b>
 
                 </span>
