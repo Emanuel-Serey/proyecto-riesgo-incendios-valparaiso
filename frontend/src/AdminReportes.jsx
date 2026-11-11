@@ -23,6 +23,7 @@ import './UbicacionReporte.css'
 const TOKEN_KEY =
   'admin_access_token'
 
+
 function formatearFechaReporte(
   fecha
 ) {
@@ -45,7 +46,6 @@ function formatearFechaReporte(
   ) {
 
     return '-'
-
   }
 
 
@@ -88,7 +88,6 @@ function formatearHoraReporte(
   ) {
 
     return '-'
-
   }
 
 
@@ -128,7 +127,6 @@ function obtenerAntiguedadReporte(
   ) {
 
     return ''
-
   }
 
 
@@ -143,7 +141,6 @@ function obtenerAntiguedadReporte(
   ) {
 
     return 'Ahora'
-
   }
 
 
@@ -160,7 +157,6 @@ function obtenerAntiguedadReporte(
   ) {
 
     return 'Hace menos de 1 min'
-
   }
 
 
@@ -169,7 +165,6 @@ function obtenerAntiguedadReporte(
   ) {
 
     return `Hace ${minutos} min`
-
   }
 
 
@@ -190,7 +185,6 @@ function obtenerAntiguedadReporte(
         ? 'Hace 1 hora'
         : `Hace ${horas} horas`
     )
-
   }
 
 
@@ -209,6 +203,82 @@ function obtenerAntiguedadReporte(
   )
 
 }
+
+
+function formatearComprobacion(
+  fecha
+) {
+
+  if (!fecha) {
+    return '-'
+  }
+
+
+  const valor =
+    new Date(
+      fecha
+    )
+
+
+  if (
+    Number.isNaN(
+      valor.getTime()
+    )
+  ) {
+
+    return '-'
+  }
+
+
+  return valor.toLocaleTimeString(
+    'es-CL',
+    {
+      hour:
+        '2-digit',
+
+      minute:
+        '2-digit',
+
+      second:
+        '2-digit',
+    }
+  )
+
+}
+
+
+function formatearPromedioHoras(
+  horas
+) {
+
+  if (
+    horas ===
+    null
+  ) {
+
+    return '-'
+  }
+
+
+  if (
+    horas <
+    1
+  ) {
+
+    return (
+      `${Math.round(
+        horas * 60
+      )} min`
+    )
+  }
+
+
+  return (
+    `${horas.toFixed(1)} h`
+  )
+
+}
+
 
 function AdminReportes() {
   const location =
@@ -249,6 +319,52 @@ function AdminReportes() {
     pendientes,
     setPendientes
   ] = useState([])
+
+
+  const [
+    activos,
+    setActivos
+  ] = useState([])
+
+
+  const [
+    historial,
+    setHistorial
+  ] = useState([])
+
+
+  const [
+    vista,
+    setVista
+  ] = useState(
+    'pendientes'
+  )
+
+
+  const [
+    filtroHistorial,
+    setFiltroHistorial
+  ] = useState(
+    'todos'
+  )
+
+
+  const [
+    estadoSistema,
+    setEstadoSistema
+  ] = useState(null)
+
+
+  const [
+    cargandoSistema,
+    setCargandoSistema
+  ] = useState(false)
+
+
+  const [
+    errorSistema,
+    setErrorSistema
+  ] = useState('')
 
 
   const [
@@ -303,11 +419,26 @@ function AdminReportes() {
       []
     )
 
+
+    setActivos(
+      []
+    )
+
+
+    setHistorial(
+      []
+    )
+
+
+    setEstadoSistema(
+      null
+    )
+
   }
 
 
   // =========================================================
-  // CARGAR REPORTES
+  // PENDIENTES
   // =========================================================
 
   const cargarPendientes =
@@ -320,23 +451,228 @@ function AdminReportes() {
         obtenerToken()
 
 
+      if (!token) {
+        eliminarSesion()
+        return
+      }
+
+
+      const respuesta =
+        await fetch(
+          '/api/reportes/pendientes',
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            cache:
+              'no-store',
+          }
+        )
+
+
       if (
-        !token
+        respuesta.status ===
+        401
       ) {
 
         eliminarSesion()
 
-        return
-
+        throw new Error(
+          'La sesión expiró.'
+        )
       }
 
 
-      setCargando(
+      if (
+        !respuesta.ok
+      ) {
+
+        const datos =
+          await respuesta.json()
+
+
+        throw new Error(
+          datos.detail ||
+          'No fue posible cargar los reportes pendientes.'
+        )
+      }
+
+
+      setPendientes(
+        await respuesta.json()
+      )
+
+  }
+
+
+  // =========================================================
+  // ACTIVOS
+  // =========================================================
+
+  const cargarActivos =
+    async (
+      tokenRecibido = null
+    ) => {
+
+      const token =
+        tokenRecibido ||
+        obtenerToken()
+
+
+      if (!token) {
+        eliminarSesion()
+        return
+      }
+
+
+      const respuesta =
+        await fetch(
+          '/api/admin/reportes/confirmados',
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            cache:
+              'no-store',
+          }
+        )
+
+
+      if (
+        respuesta.status ===
+        401
+      ) {
+
+        eliminarSesion()
+
+        throw new Error(
+          'La sesión expiró.'
+        )
+      }
+
+
+      if (
+        !respuesta.ok
+      ) {
+
+        const datos =
+          await respuesta.json()
+
+
+        throw new Error(
+          datos.detail ||
+          'No fue posible cargar los reportes activos.'
+        )
+      }
+
+
+      setActivos(
+        await respuesta.json()
+      )
+
+  }
+
+
+  // =========================================================
+  // HISTORIAL
+  // =========================================================
+
+  const cargarHistorial =
+    async (
+      tokenRecibido = null
+    ) => {
+
+      const token =
+        tokenRecibido ||
+        obtenerToken()
+
+
+      if (!token) {
+        eliminarSesion()
+        return
+      }
+
+
+      const respuesta =
+        await fetch(
+          '/api/admin/reportes/historial',
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            cache:
+              'no-store',
+          }
+        )
+
+
+      if (
+        respuesta.status ===
+        401
+      ) {
+
+        eliminarSesion()
+
+        throw new Error(
+          'La sesión expiró.'
+        )
+      }
+
+
+      if (
+        !respuesta.ok
+      ) {
+
+        const datos =
+          await respuesta.json()
+
+
+        throw new Error(
+          datos.detail ||
+          'No fue posible cargar el historial.'
+        )
+      }
+
+
+      setHistorial(
+        await respuesta.json()
+      )
+
+  }
+
+
+  // =========================================================
+  // ESTADO DEL SISTEMA
+  // =========================================================
+
+  const cargarEstadoSistema =
+    async (
+      tokenRecibido = null
+    ) => {
+
+      const token =
+        tokenRecibido ||
+        obtenerToken()
+
+
+      if (!token) {
+        eliminarSesion()
+        return
+      }
+
+
+      setCargandoSistema(
         true
       )
 
 
-      setError(
+      setErrorSistema(
         ''
       )
 
@@ -345,13 +681,11 @@ function AdminReportes() {
 
         const respuesta =
           await fetch(
-            '/api/reportes/pendientes',
+            '/api/admin/system/status',
             {
               headers: {
-
                 Authorization:
                   `Bearer ${token}`,
-
               },
 
               cache:
@@ -367,11 +701,9 @@ function AdminReportes() {
 
           eliminarSesion()
 
-
           throw new Error(
-            'La sesión expiró. Inicia sesión nuevamente.'
+            'La sesión expiró.'
           )
-
         }
 
 
@@ -379,64 +711,64 @@ function AdminReportes() {
           !respuesta.ok
         ) {
 
-          let mensaje =
-            'No fue posible cargar los reportes.'
-
-
-          try {
-
-            const datos =
-              await respuesta.json()
-
-
-            if (
-              datos.detail
-            ) {
-
-              mensaje =
-                datos.detail
-
-            }
-
-          } catch {
-            // Mensaje genérico.
-          }
+          const datos =
+            await respuesta.json()
 
 
           throw new Error(
-            mensaje
+            datos.detail ||
+            'No fue posible comprobar el sistema.'
           )
-
         }
 
 
-        const datos =
+        setEstadoSistema(
           await respuesta.json()
-
-
-        setPendientes(
-          datos
         )
 
-
-        setAutenticado(
-          true
-        )
 
       } catch (err) {
 
-        setError(
+        setErrorSistema(
           err.message ||
-          'No fue posible cargar los reportes.'
+          'No fue posible comprobar el sistema.'
         )
 
       } finally {
 
-        setCargando(
+        setCargandoSistema(
           false
         )
 
       }
+
+    }
+
+
+  // =========================================================
+  // CARGAR REPORTES
+  // =========================================================
+
+  const cargarTodosReportes =
+    async (
+      token
+    ) => {
+
+      await Promise.all([
+
+        cargarPendientes(
+          token
+        ),
+
+        cargarActivos(
+          token
+        ),
+
+        cargarHistorial(
+          token
+        ),
+
+      ])
 
     }
 
@@ -457,7 +789,6 @@ function AdminReportes() {
       )
 
       return
-
     }
 
 
@@ -468,16 +799,13 @@ function AdminReportes() {
           obtenerToken()
 
 
-        if (
-          !token
-        ) {
+        if (!token) {
 
           setVerificandoSesion(
             false
           )
 
           return
-
         }
 
 
@@ -488,10 +816,8 @@ function AdminReportes() {
               '/api/auth/me',
               {
                 headers: {
-
                   Authorization:
                     `Bearer ${token}`,
-
                 },
 
                 cache:
@@ -507,7 +833,6 @@ function AdminReportes() {
             eliminarSesion()
 
             return
-
           }
 
 
@@ -525,9 +850,10 @@ function AdminReportes() {
           )
 
 
-          await cargarPendientes(
+          await cargarTodosReportes(
             token
           )
+
 
         } catch {
 
@@ -579,7 +905,6 @@ function AdminReportes() {
         )
 
         return
-
       }
 
 
@@ -614,10 +939,8 @@ function AdminReportes() {
                 'POST',
 
               headers: {
-
                 'Content-Type':
                   'application/x-www-form-urlencoded',
-
               },
 
               body:
@@ -626,19 +949,8 @@ function AdminReportes() {
           )
 
 
-        let datos = null
-
-
-        try {
-
-          datos =
-            await respuesta.json()
-
-        } catch {
-
-          datos = null
-
-        }
+        const datos =
+          await respuesta.json()
 
 
         if (
@@ -646,10 +958,9 @@ function AdminReportes() {
         ) {
 
           throw new Error(
-            datos?.detail ||
+            datos.detail ||
             'No fue posible iniciar sesión.'
           )
-
         }
 
 
@@ -674,9 +985,10 @@ function AdminReportes() {
         )
 
 
-        await cargarPendientes(
+        await cargarTodosReportes(
           datos.access_token
         )
+
 
       } catch (err) {
 
@@ -713,20 +1025,9 @@ function AdminReportes() {
         obtenerToken()
 
 
-      if (
-        !token
-      ) {
-
+      if (!token) {
         eliminarSesion()
-
-
-        setError(
-          'Debes iniciar sesión nuevamente.'
-        )
-
-
         return
-
       }
 
 
@@ -744,52 +1045,21 @@ function AdminReportes() {
 
         const respuesta =
           await fetch(
-
             `/api/reportes/${idReporte}/${accion}`,
-
             {
               method:
                 'PATCH',
 
               headers: {
-
                 Authorization:
                   `Bearer ${token}`,
-
               },
             }
-
           )
 
 
-        let datos = null
-
-
-        try {
-
-          datos =
-            await respuesta.json()
-
-        } catch {
-
-          datos = null
-
-        }
-
-
-        if (
-          respuesta.status ===
-          401
-        ) {
-
-          eliminarSesion()
-
-
-          throw new Error(
-            'La sesión expiró. Inicia sesión nuevamente.'
-          )
-
-        }
+        const datos =
+          await respuesta.json()
 
 
         if (
@@ -797,24 +1067,14 @@ function AdminReportes() {
         ) {
 
           throw new Error(
-            datos?.detail ||
+            datos.detail ||
             'No fue posible actualizar el reporte.'
           )
-
         }
 
 
-        setPendientes(
-          (
-            actuales
-          ) =>
-            actuales.filter(
-              (
-                reporte
-              ) =>
-                reporte.id_reporte !==
-                idReporte
-            )
+        await cargarTodosReportes(
+          token
         )
 
 
@@ -823,6 +1083,7 @@ function AdminReportes() {
             'reportes-actualizados'
           )
         )
+
 
       } catch (err) {
 
@@ -843,6 +1104,144 @@ function AdminReportes() {
 
 
   // =========================================================
+  // RESOLVER
+  // =========================================================
+
+  const resolverReporte =
+    async (
+      idReporte
+    ) => {
+
+      const token =
+        obtenerToken()
+
+
+      if (!token) {
+        eliminarSesion()
+        return
+      }
+
+
+      setProcesando(
+        idReporte
+      )
+
+
+      try {
+
+        const respuesta =
+          await fetch(
+            `/api/reportes/${idReporte}/resolver`,
+            {
+              method:
+                'PATCH',
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          )
+
+
+        const datos =
+          await respuesta.json()
+
+
+        if (
+          !respuesta.ok
+        ) {
+
+          throw new Error(
+            datos.detail ||
+            'No fue posible resolver el reporte.'
+          )
+        }
+
+
+        await cargarTodosReportes(
+          token
+        )
+
+
+        window.dispatchEvent(
+          new Event(
+            'reportes-actualizados'
+          )
+        )
+
+
+      } catch (err) {
+
+        setError(
+          err.message ||
+          'No fue posible resolver el reporte.'
+        )
+
+      } finally {
+
+        setProcesando(
+          null
+        )
+
+      }
+
+    }
+
+
+  // =========================================================
+  // ACTUALIZAR
+  // =========================================================
+
+  const actualizarVista =
+    async () => {
+
+      if (
+        vista ===
+        'sistema'
+      ) {
+
+        await cargarEstadoSistema()
+
+        return
+      }
+
+
+      setCargando(
+        true
+      )
+
+
+      try {
+
+        await cargarTodosReportes(
+          obtenerToken()
+        )
+
+      } finally {
+
+        setCargando(
+          false
+        )
+
+      }
+
+    }
+
+
+  const abrirSistema = () => {
+
+    setVista(
+      'sistema'
+    )
+
+
+    cargarEstadoSistema()
+
+  }
+
+
+  // =========================================================
   // LOGOUT
   // =========================================================
 
@@ -850,11 +1249,9 @@ function AdminReportes() {
 
     eliminarSesion()
 
-
     setPassword(
       ''
     )
-
 
     setError(
       ''
@@ -864,7 +1261,218 @@ function AdminReportes() {
 
 
   // =========================================================
-  // SOLO /admin
+  // MÉTRICAS
+  // =========================================================
+
+  const resueltos =
+    historial.filter(
+      reporte =>
+        reporte.estado ===
+        'resuelto'
+    )
+
+
+  const rechazados =
+    historial.filter(
+      reporte =>
+        reporte.estado ===
+        'rechazado'
+    )
+
+
+  const todosReportes = [
+
+    ...pendientes,
+
+    ...activos,
+
+    ...historial,
+
+  ]
+
+
+  const totalReportes =
+    todosReportes.length
+
+
+  const confirmadosHistoricos =
+    activos.length
+    +
+    resueltos.length
+
+
+  const decisiones =
+    confirmadosHistoricos
+    +
+    rechazados.length
+
+
+  const tasaConfirmacion =
+    decisiones >
+    0
+
+      ? (
+          confirmadosHistoricos
+          /
+          decisiones
+          *
+          100
+        )
+
+      : 0
+
+
+  const totalGps =
+    todosReportes.filter(
+      reporte =>
+        reporte.origen_ubicacion ===
+        'gps'
+    ).length
+
+
+  const totalManual =
+    todosReportes.filter(
+      reporte =>
+        reporte.origen_ubicacion ===
+        'manual'
+    ).length
+
+
+  const totalDuplicados =
+    todosReportes.filter(
+      reporte =>
+        reporte.posible_duplicado
+    ).length
+
+
+  const deteccionesHumo =
+    todosReportes.filter(
+      reporte =>
+        reporte.yolo_clase ===
+        'smoke'
+    ).length
+
+
+  const deteccionesFuego =
+    todosReportes.filter(
+      reporte =>
+        reporte.yolo_clase ===
+        'fire'
+    ).length
+
+
+  const tiemposResolucion =
+    resueltos
+      .filter(
+        reporte =>
+          reporte.fecha_validacion
+          &&
+          reporte.fecha_resolucion
+      )
+      .map(
+        reporte => {
+
+          const inicio =
+            new Date(
+              reporte.fecha_validacion
+            ).getTime()
+
+
+          const fin =
+            new Date(
+              reporte.fecha_resolucion
+            ).getTime()
+
+
+          return (
+            fin - inicio
+          ) / 3600000
+
+        }
+      )
+      .filter(
+        valor =>
+          Number.isFinite(
+            valor
+          )
+          &&
+          valor >=
+          0
+      )
+
+
+  const promedioResolucion =
+    tiemposResolucion.length >
+    0
+
+      ? (
+          tiemposResolucion.reduce(
+            (
+              total,
+              valor
+            ) =>
+              total +
+              valor,
+            0
+          )
+          /
+          tiemposResolucion.length
+        )
+
+      : null
+
+
+  const porcentaje =
+    cantidad => {
+
+      if (
+        totalReportes ===
+        0
+      ) {
+
+        return 0
+      }
+
+
+      return (
+        cantidad
+        /
+        totalReportes
+        *
+        100
+      )
+
+    }
+
+
+  // =========================================================
+  // HISTORIAL
+  // =========================================================
+
+  const historialFiltrado =
+    historial.filter(
+      reporte => {
+
+        if (
+          filtroHistorial ===
+          'todos'
+        ) {
+
+          return true
+        }
+
+
+        return (
+          reporte.estado ===
+          filtroHistorial
+        )
+
+      }
+    )
+
+
+  // =========================================================
+  // RUTA
   // =========================================================
 
   if (
@@ -873,7 +1481,6 @@ function AdminReportes() {
   ) {
 
     return null
-
   }
 
 
@@ -896,10 +1503,6 @@ function AdminReportes() {
           <strong>
             Verificando sesión
           </strong>
-
-          <span>
-            Comprobando credenciales administrativas...
-          </span>
 
         </div>
 
@@ -988,85 +1591,60 @@ function AdminReportes() {
                 }
               >
 
-
-                <label
-                  htmlFor="admin-username"
-                >
+                <label>
                   Usuario
                 </label>
 
 
                 <input
-                  id="admin-username"
-
                   type="text"
 
                   value={
                     username
                   }
 
-                  onChange={(
-                    evento
-                  ) =>
-                    setUsername(
-                      evento.target.value
-                    )
-                  }
-
-                  autoComplete="username"
-
-                  disabled={
-                    cargando
+                  onChange={
+                    evento =>
+                      setUsername(
+                        evento.target.value
+                      )
                   }
                 />
 
 
-                <label
-                  htmlFor="admin-password"
-                >
+                <label>
                   Contraseña
                 </label>
 
 
                 <input
-                  id="admin-password"
-
                   type="password"
 
                   value={
                     password
                   }
 
-                  onChange={(
-                    evento
-                  ) =>
-                    setPassword(
-                      evento.target.value
-                    )
-                  }
-
-                  autoComplete="current-password"
-
-                  disabled={
-                    cargando
+                  onChange={
+                    evento =>
+                      setPassword(
+                        evento.target.value
+                      )
                   }
                 />
 
 
-                {error && (
+                {
+                  error && (
 
-                  <div className="admin-login-error">
+                    <div className="admin-login-error">
+                      {error}
+                    </div>
 
-                    {error}
-
-                  </div>
-
-                )}
+                  )
+                }
 
 
                 <button
-                  type="submit"
-
                   className="admin-login-boton"
 
                   disabled={
@@ -1088,7 +1666,6 @@ function AdminReportes() {
 
               <Link
                 to="/"
-
                 className="admin-volver-login"
               >
 
@@ -1114,7 +1691,7 @@ function AdminReportes() {
 
 
   // =========================================================
-  // PANEL ADMIN
+  // PANEL
   // =========================================================
 
   return (
@@ -1155,13 +1732,13 @@ function AdminReportes() {
 
 
           <button
-            type="button"
-
             onClick={
               cerrarSesion
             }
           >
+
             Cerrar sesión
+
           </button>
 
 
@@ -1182,43 +1759,160 @@ function AdminReportes() {
           </div>
 
 
-          <nav>
+          <div className="admin-sidebar-grupo">
+
+            <div className="admin-sidebar-grupo-titulo">
+              Reportes ciudadanos
+            </div>
+
 
             <button
-              type="button"
+              className={
+                `admin-nav-item ${
+                  vista ===
+                  'pendientes'
+                    ? 'admin-nav-activo'
+                    : ''
+                }`
+              }
 
-              className="admin-nav-item admin-nav-activo"
+              onClick={() =>
+                setVista(
+                  'pendientes'
+                )
+              }
             >
 
-              <span>
-                🔥
-              </span>
+              🔥 Pendientes
 
-              Reportes ciudadanos
+              <b className="admin-nav-contador">
+                {pendientes.length}
+              </b>
 
             </button>
 
-          </nav>
+
+            <button
+              className={
+                `admin-nav-item ${
+                  vista ===
+                  'activos'
+                    ? 'admin-nav-activo'
+                    : ''
+                }`
+              }
+
+              onClick={() =>
+                setVista(
+                  'activos'
+                )
+              }
+            >
+
+              📍 Reportes activos
+
+              <b className="admin-nav-contador">
+                {activos.length}
+              </b>
+
+            </button>
 
 
-          <div className="admin-sidebar-futuro">
+            <button
+              className={
+                `admin-nav-item ${
+                  vista ===
+                  'historial'
+                    ? 'admin-nav-activo'
+                    : ''
+                }`
+              }
 
-            <span>
+              onClick={() =>
+                setVista(
+                  'historial'
+                )
+              }
+            >
 
-              Panel preparado para incorporar
-              nuevas herramientas administrativas.
+              🕘 Historial
 
-            </span>
+              <b className="admin-nav-contador">
+                {historial.length}
+              </b>
+
+            </button>
+
+          </div>
+
+
+          <div className="admin-sidebar-grupo">
+
+            <div className="admin-sidebar-grupo-titulo">
+              Sistema
+            </div>
+
+
+            <button
+              className={
+                `admin-nav-item ${
+                  vista ===
+                  'sistema'
+                    ? 'admin-nav-activo'
+                    : ''
+                }`
+              }
+
+              onClick={
+                abrirSistema
+              }
+            >
+
+              ⚙ Estado del sistema
+
+            </button>
+
+          </div>
+
+
+          <div className="admin-sidebar-grupo">
+
+            <div className="admin-sidebar-grupo-titulo">
+              Análisis
+            </div>
+
+
+            <button
+              className={
+                `admin-nav-item ${
+                  vista ===
+                  'analisis'
+                    ? 'admin-nav-activo'
+                    : ''
+                }`
+              }
+
+              onClick={() =>
+                setVista(
+                  'analisis'
+                )
+              }
+            >
+
+              📊 Estadísticas
+
+            </button>
 
           </div>
 
 
           <Link
             to="/"
-
             className="admin-volver-mapa"
           >
+
             ← Volver al mapa
+
           </Link>
 
 
@@ -1234,20 +1928,64 @@ function AdminReportes() {
             <div>
 
               <p className="admin-seccion-etiqueta">
-                Validación ciudadana
+
+                {
+                  vista ===
+                  'pendientes'
+                    ? 'Validación ciudadana'
+                    : vista ===
+                      'activos'
+                        ? 'Seguimiento de reportes'
+                        : vista ===
+                          'historial'
+                            ? 'Registro histórico'
+                            : vista ===
+                              'sistema'
+                                ? 'Infraestructura'
+                                : 'Análisis de reportes'
+                }
+
               </p>
 
 
               <h2>
-                Reportes pendientes
+
+                {
+                  vista ===
+                  'pendientes'
+                    ? 'Reportes pendientes'
+                    : vista ===
+                      'activos'
+                        ? 'Reportes activos'
+                        : vista ===
+                          'historial'
+                            ? 'Historial de reportes'
+                            : vista ===
+                              'sistema'
+                                ? 'Estado del sistema'
+                                : 'Estadísticas'
+                }
+
               </h2>
 
 
               <p className="admin-seccion-descripcion">
 
-                Revisa la evidencia enviada por
-                los ciudadanos antes de mostrar
-                un reporte en el mapa público.
+                {
+                  vista ===
+                  'pendientes'
+                    ? 'Revisa la evidencia antes de publicar un reporte en el mapa.'
+                    : vista ===
+                      'activos'
+                        ? 'Reportes actualmente visibles como llamas en el mapa público.'
+                        : vista ===
+                          'historial'
+                            ? 'Consulta reportes resueltos y rechazados.'
+                            : vista ===
+                              'sistema'
+                                ? 'Supervisa servicios, base de datos y modelos de inteligencia artificial.'
+                                : 'Resumen estadístico de los reportes ciudadanos registrados.'
+                }
 
               </p>
 
@@ -1255,16 +1993,9 @@ function AdminReportes() {
 
 
             <button
-              type="button"
-
               className="admin-actualizar"
-
-              onClick={() =>
-                cargarPendientes()
-              }
-
-              disabled={
-                cargando
+              onClick={
+                actualizarVista
               }
             >
 
@@ -1276,102 +2007,72 @@ function AdminReportes() {
           </div>
 
 
-          <div className="admin-resumen">
-
-
-            <div className="admin-resumen-card">
-
-              <span>
-                Pendientes
-              </span>
-
-              <strong>
-                {
-                  pendientes.length
-                }
-              </strong>
-
-            </div>
-
-
-            <div className="admin-resumen-card">
-
-              <span>
-                Sesión
-              </span>
-
-              <strong className="admin-sesion-activa">
-                Activa
-              </strong>
-
-            </div>
-
-
-            <div className="admin-resumen-card">
-
-              <span>
-                Autenticación
-              </span>
-
-              <strong className="admin-auth-label">
-                OAuth2 + JWT
-              </strong>
-
-            </div>
-
-
-          </div>
-
-
-          {error && (
-
-            <div className="admin-panel-error">
-
-              {error}
-
-            </div>
-
-          )}
-
-
-          {cargando && (
-
-            <div className="admin-estado-vacio">
-
-              <div className="admin-spinner" />
-
-              <strong>
-                Cargando reportes
-              </strong>
-
-            </div>
-
-          )}
-
-
           {
-            !cargando &&
-            pendientes.length === 0 && (
+            (
+              vista ===
+              'pendientes'
+              ||
+              vista ===
+              'activos'
+              ||
+              vista ===
+              'historial'
+            )
+            && (
 
-              <div className="admin-estado-vacio">
+              <div className="admin-resumen">
 
 
-                <div className="admin-check">
-                  ✓
+                <div className="admin-resumen-card">
+
+                  <span>
+                    Pendientes
+                  </span>
+
+                  <strong>
+                    {pendientes.length}
+                  </strong>
+
                 </div>
 
 
-                <strong>
-                  No hay reportes pendientes
-                </strong>
+                <div className="admin-resumen-card">
+
+                  <span>
+                    Activos en mapa
+                  </span>
+
+                  <strong>
+                    {activos.length}
+                  </strong>
+
+                </div>
 
 
-                <p>
+                <div className="admin-resumen-card">
 
-                  Todos los reportes ciudadanos
-                  han sido revisados.
+                  <span>
+                    Historial
+                  </span>
 
-                </p>
+                  <strong>
+                    {historial.length}
+                  </strong>
+
+                </div>
+
+
+                <div className="admin-resumen-card">
+
+                  <span>
+                    Sesión
+                  </span>
+
+                  <strong className="admin-sesion-activa">
+                    Activa
+                  </strong>
+
+                </div>
 
 
               </div>
@@ -1381,51 +2082,436 @@ function AdminReportes() {
 
 
           {
-            !cargando &&
-            pendientes.length > 0 && (
+            error && (
+
+              <div className="admin-panel-error">
+                {error}
+              </div>
+
+            )
+          }
+
+
+          {/* =================================================
+              PENDIENTES
+              ================================================= */}
+
+          {
+            vista ===
+            'pendientes'
+            &&
+            (
 
               <div className="admin-reportes-grid">
 
+                {
+                  pendientes.map(
+                    reporte => {
 
-                {pendientes.map(
-                  (
-                    reporte
-                  ) => {
-
-                    const origenManual =
-                      reporte.origen_ubicacion ===
-                      'manual'
+                      const origenManual =
+                        reporte.origen_ubicacion ===
+                        'manual'
 
 
-                    const tienePrecisionGps =
-                      !origenManual
-                      &&
-                      reporte.precision_gps_m !==
-                      null
-                      &&
-                      reporte.precision_gps_m !==
-                      undefined
+                      const tienePrecisionGps =
+                        !origenManual
+                        &&
+                        reporte.precision_gps_m !==
+                        null
+                        &&
+                        reporte.precision_gps_m !==
+                        undefined
 
 
-                    const calidadGps =
-                      tienePrecisionGps
-                        ? clasificarPrecisionGps(
-                            reporte.precision_gps_m
-                          )
-                        : null
+                      const calidadGps =
+                        tienePrecisionGps
+                          ? clasificarPrecisionGps(
+                              reporte.precision_gps_m
+                            )
+                          : null
 
 
-                    const cantidadCercanos =
-                      Number(
-                        reporte.reportes_cercanos_count ||
-                        0
+                      return (
+
+                        <article
+                          className="admin-reporte-card"
+                          key={
+                            reporte.id_reporte
+                          }
+                        >
+
+
+                          <div className="admin-reporte-header">
+
+                            <div>
+
+                              <span>
+                                Reporte ciudadano
+                              </span>
+
+                              <strong>
+                                #{reporte.id_reporte}
+                              </strong>
+
+                            </div>
+
+
+                            <div className="admin-badge-pendiente">
+                              Pendiente
+                            </div>
+
+                          </div>
+
+
+                          <img
+                            className="admin-reporte-imagen"
+
+                            src={
+                              `/api${reporte.imagen_url}`
+                            }
+
+                            alt="Evidencia"
+                          />
+
+
+                          <div className="admin-reporte-body">
+
+
+                            <div className="admin-descripcion">
+
+                              <span>
+                                Descripción
+                              </span>
+
+                              <p>
+                                {
+                                  reporte.descripcion ||
+                                  'Sin descripción'
+                                }
+                              </p>
+
+                            </div>
+
+
+                            <div className="admin-datos">
+
+
+                              <div>
+
+                                <span>
+                                  Detección IA
+                                </span>
+
+                                <strong>
+                                  {reporte.yolo_clase || '-'}
+                                </strong>
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  Confianza
+                                </span>
+
+                                <strong>
+
+                                  {
+                                    reporte.yolo_confianza !==
+                                    null
+
+                                      ? `${
+                                          (
+                                            Number(
+                                              reporte.yolo_confianza
+                                            )
+                                            *
+                                            100
+                                          ).toFixed(1)
+                                        }%`
+
+                                      : '-'
+                                  }
+
+                                </strong>
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  {
+                                    origenManual
+                                      ? 'Ubicación'
+                                      : 'Precisión GPS'
+                                  }
+                                </span>
+
+                                <strong>
+
+                                  {
+                                    origenManual
+                                      ? 'Manual · aproximada'
+                                      : tienePrecisionGps
+                                        ? formatearPrecisionGps(
+                                            reporte.precision_gps_m
+                                          )
+                                        : '-'
+                                  }
+
+                                </strong>
+
+                                {
+                                  calidadGps && (
+
+                                    <small className="admin-antiguedad">
+                                      {calidadGps.etiqueta}
+                                    </small>
+
+                                  )
+                                }
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  Coordenadas
+                                </span>
+
+                                <strong>
+
+                                  {
+                                    Number(
+                                      reporte.latitud
+                                    ).toFixed(4)
+                                  }
+
+                                  {', '}
+
+                                  {
+                                    Number(
+                                      reporte.longitud
+                                    ).toFixed(4)
+                                  }
+
+                                </strong>
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  Fecha del reporte
+                                </span>
+
+                                <strong>
+
+                                  {
+                                    formatearFechaReporte(
+                                      reporte.fecha_reporte
+                                    )
+                                  }
+
+                                </strong>
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  Hora
+                                </span>
+
+                                <strong>
+
+                                  {
+                                    formatearHoraReporte(
+                                      reporte.fecha_reporte
+                                    )
+                                  }
+
+                                </strong>
+
+                                <small className="admin-antiguedad">
+
+                                  {
+                                    obtenerAntiguedadReporte(
+                                      reporte.fecha_reporte
+                                    )
+                                  }
+
+                                </small>
+
+                              </div>
+
+
+                            </div>
+
+
+                            {
+                              reporte.posible_duplicado && (
+
+                                <div className="admin-duplicado-alerta">
+
+                                  ⚠
+
+                                  <div>
+
+                                    <strong>
+                                      Posible fotografía duplicada
+                                    </strong>
+
+                                    Coincidencia visual con el reporte
+                                    {' #'}
+
+                                    {
+                                      reporte.reporte_duplicado_id
+                                    }
+
+                                    .
+
+                                  </div>
+
+                                </div>
+
+                              )
+                            }
+
+
+                            {
+                              origenManual && (
+
+                                <div className="admin-aviso-manual">
+
+                                  🗺
+
+                                  <div>
+
+                                    <strong>
+                                      Ubicación indicada manualmente
+                                    </strong>
+
+                                    El punto es aproximado y no
+                                    proviene del GPS.
+
+                                  </div>
+
+                                </div>
+
+                              )
+                            }
+
+
+                            {
+                              calidadGps
+                              &&
+                              calidadGps.nivel !==
+                              'buena'
+                              && (
+
+                                <div className="admin-alerta-gps">
+
+                                  ⚠
+
+                                  {
+                                    calidadGps.descripcionAdmin
+                                  }
+
+                                </div>
+
+                              )
+                            }
+
+
+                            <div className="admin-reporte-acciones">
+
+
+                              <button
+                                className="admin-boton-rechazar"
+
+                                disabled={
+                                  procesando ===
+                                  reporte.id_reporte
+                                }
+
+                                onClick={() =>
+                                  cambiarEstado(
+                                    reporte.id_reporte,
+                                    'rechazar'
+                                  )
+                                }
+                              >
+
+                                Rechazar
+
+                              </button>
+
+
+                              <button
+                                className="admin-boton-confirmar"
+
+                                disabled={
+                                  procesando ===
+                                  reporte.id_reporte
+                                }
+
+                                onClick={() =>
+                                  cambiarEstado(
+                                    reporte.id_reporte,
+                                    'confirmar'
+                                  )
+                                }
+                              >
+
+                                Confirmar
+
+                              </button>
+
+
+                            </div>
+
+
+                          </div>
+
+
+                        </article>
+
                       )
 
+                    }
+                  )
+                }
 
-                    return (
+
+              </div>
+
+            )
+          }
+
+
+          {/* =================================================
+              ACTIVOS
+              ================================================= */}
+
+          {
+            vista ===
+            'activos'
+            && (
+
+              <div className="admin-reportes-grid">
+
+                {
+                  activos.map(
+                    reporte => (
 
                       <article
-                        className="admin-reporte-card"
+                        className="admin-reporte-card admin-reporte-activo"
 
                         key={
                           reporte.id_reporte
@@ -1435,7 +2521,6 @@ function AdminReportes() {
 
                         <div className="admin-reporte-header">
 
-
                           <div>
 
                             <span>
@@ -1443,51 +2528,27 @@ function AdminReportes() {
                             </span>
 
                             <strong>
-
-                              #
-
-                              {
-                                reporte.id_reporte
-                              }
-
+                              #{reporte.id_reporte}
                             </strong>
 
                           </div>
 
-
-                          <div className="admin-badge-pendiente">
-                            Pendiente
+                          <div className="admin-badge-activo">
+                            Activo en mapa
                           </div>
-
 
                         </div>
 
 
-                        {reporte.imagen_url ? (
+                        <img
+                          className="admin-reporte-imagen"
 
-                          <img
-                            className="admin-reporte-imagen"
+                          src={
+                            `/api${reporte.imagen_url}`
+                          }
 
-                            src={
-                              `/api${reporte.imagen_url}`
-                            }
-
-                            alt={
-                              `Evidencia del reporte ${
-                                reporte.id_reporte
-                              }`
-                            }
-                          />
-
-                        ) : (
-
-                          <div className="admin-imagen-vacia">
-
-                            Sin fotografía
-
-                          </div>
-
-                        )}
+                          alt="Evidencia"
+                        />
 
 
                         <div className="admin-reporte-body">
@@ -1500,12 +2561,10 @@ function AdminReportes() {
                             </span>
 
                             <p>
-
                               {
                                 reporte.descripcion ||
                                 'Sin descripción'
                               }
-
                             </p>
 
                           </div>
@@ -1521,12 +2580,7 @@ function AdminReportes() {
                               </span>
 
                               <strong>
-
-                                {
-                                  reporte.yolo_clase ||
-                                  '-'
-                                }
-
+                                {reporte.yolo_clase || '-'}
                               </strong>
 
                             </div>
@@ -1541,8 +2595,9 @@ function AdminReportes() {
                               <strong>
 
                                 {
-                                  reporte.yolo_confianza !== null &&
-                                  reporte.yolo_confianza !== undefined
+                                  reporte.yolo_confianza !==
+                                  null
+
                                     ? `${
                                         (
                                           Number(
@@ -1552,6 +2607,7 @@ function AdminReportes() {
                                           100
                                         ).toFixed(1)
                                       }%`
+
                                     : '-'
                                 }
 
@@ -1560,82 +2616,43 @@ function AdminReportes() {
                             </div>
 
 
-                            <div className="admin-dato">
+                            <div>
+
+                              <span>
+                                Ubicación
+                              </span>
+
+                              <strong>
+
+                                {
+                                  reporte.origen_ubicacion ===
+                                  'manual'
+                                    ? 'Manual · aproximada'
+                                    : 'GPS'
+                                }
+
+                              </strong>
+
+                            </div>
 
 
-                            <span>
+                            <div>
 
-                              {
-                                origenManual
-                                  ? 'Ubicación'
-                                  : 'Precisión GPS'
-                              }
+                              <span>
+                                Fecha del reporte
+                              </span>
 
-                            </span>
+                              <strong>
 
-
-                            {
-                              origenManual
-                                ? (
-
-                                    <>
-
-                                      <strong>
-                                        Manual
-                                      </strong>
-
-
-                                      <div className="admin-badge-manual">
-
-                                        Aproximada
-
-                                      </div>
-
-                                    </>
-
+                                {
+                                  formatearFechaReporte(
+                                    reporte.fecha_reporte
                                   )
-                                : (
+                                }
 
-                                    <>
+                              </strong>
 
-                                      <strong>
-
-                                        {
-                                          tienePrecisionGps
-                                            ? formatearPrecisionGps(
-                                                reporte.precision_gps_m
-                                              )
-                                            : '-'
-                                        }
-
-                                      </strong>
-
-
-                                      {
-                                        calidadGps && (
-
-                                          <div
-                                            className={
-                                              `gps-calidad gps-calidad-${calidadGps.nivel}`
-                                            }
-                                          >
-
-                                            {
-                                              calidadGps.etiqueta
-                                            }
-
-                                          </div>
-
-                                        )
-                                      }
-
-                                    </>
-
-                                  )
-                            }
-
-
-                          </div>
+                            </div>
 
 
                             <div>
@@ -1664,51 +2681,22 @@ function AdminReportes() {
 
                             </div>
 
-                            <div className="admin-dato">
+
+                            <div>
 
                               <span>
-                                Fecha del reporte
+                                Validado
                               </span>
 
                               <strong>
 
                                 {
                                   formatearFechaReporte(
-                                    reporte.fecha_reporte
+                                    reporte.fecha_validacion
                                   )
                                 }
 
                               </strong>
-
-                            </div>
-
-
-                            <div className="admin-dato">
-
-                              <span>
-                                Hora
-                              </span>
-
-                              <strong>
-
-                                {
-                                  formatearHoraReporte(
-                                    reporte.fecha_reporte
-                                  )
-                                }
-
-                              </strong>
-
-
-                              <small className="admin-antiguedad">
-
-                                {
-                                  obtenerAntiguedadReporte(
-                                    reporte.fecha_reporte
-                                  )
-                                }
-
-                              </small>
 
                             </div>
 
@@ -1716,300 +2704,39 @@ function AdminReportes() {
                           </div>
 
 
-                          {
-                            reporte.posible_duplicado && (
+                          <div className="admin-activo-aviso">
 
-                              <div className="admin-duplicado-alerta">
+                            🔥
 
-                                <span>
-                                  ⚠
-                                </span>
+                            <div>
 
+                              <strong>
+                                Visible en el mapa público
+                              </strong>
 
-                                <div>
+                              Marca como resuelto cuando el
+                              evento ya no corresponda mostrarse.
 
-                                  <strong>
-                                    Posible fotografía duplicada
-                                  </strong>
+                            </div>
 
+                          </div>
 
-                                  La imagen presenta una
-                                  coincidencia visual alta
-                                  con el{' '}
 
-                                  <span className="admin-duplicado-id">
-
-                                    reporte #
-
-                                    {
-                                      reporte.reporte_duplicado_id
-                                    }
-
-                                  </span>
-
-                                  .
-
-                                  {' '}
-
-                                  Este reporte no se considera
-                                  una corroboración independiente
-                                  del evento.
-
-                                  {' '}
-
-                                  Revisa ambas evidencias antes
-                                  de confirmar.
-
-                                </div>
-
-                              </div>
-
-                            )
-                          }
-
-
-                          {
-                            cantidadCercanos > 0 && (
-
-                              <div className="admin-cercania-alerta">
-
-
-                                <span className="admin-cercania-icono">
-                                  📍
-                                </span>
-
-
-                                <div className="admin-cercania-contenido">
-
-
-                                  <strong>
-                                    Posible mismo evento
-                                  </strong>
-
-
-                                  Se encontraron{' '}
-
-                                  <b>
-                                    {
-                                      cantidadCercanos
-                                    }
-                                  </b>
-
-                                  {' '}
-
-                                  {
-                                    cantidadCercanos === 1
-                                      ? 'reporte adicional'
-                                      : 'reportes adicionales'
-                                  }
-
-                                  {' '}dentro de{' '}
-
-                                  <b>
-                                    {
-                                      reporte.radio_cercania_m
-                                    } m
-                                  </b>
-
-                                  {' '}y una diferencia
-                                  máxima de{' '}
-
-                                  <b>
-                                    {
-                                      reporte.ventana_cercania_min
-                                    } minutos
-                                  </b>
-
-                                  .
-
-
-                                  {
-                                    reporte.reportes_cercanos_ids &&
-                                    reporte.reportes_cercanos_ids.length > 0 && (
-
-                                      <span className="admin-cercania-detalle">
-
-                                        Reportes relacionados:{' '}
-
-                                        <span className="admin-cercania-ids">
-
-                                          {
-                                            reporte.reportes_cercanos_ids
-                                              .map(
-                                                id =>
-                                                  `#${id}`
-                                              )
-                                              .join(
-                                                ', '
-                                              )
-                                          }
-
-                                        </span>
-
-                                      </span>
-
-                                    )
-                                  }
-
-
-                                  {
-                                    reporte.distancia_reporte_cercano_m !== null &&
-                                    reporte.distancia_reporte_cercano_m !== undefined && (
-
-                                      <span className="admin-cercania-detalle">
-
-                                        Reporte más cercano:{' '}
-
-                                        {
-                                          Math.round(
-                                            Number(
-                                              reporte.distancia_reporte_cercano_m
-                                            )
-                                          )
-                                        }
-
-                                        {' m'}
-
-                                      </span>
-
-                                    )
-                                  }
-
-
-                                </div>
-
-
-                              </div>
-
-                            )
-                          }
-
-
-                          {
-                            origenManual && (
-
-                              <div className="admin-aviso-manual">
-
-                                <span>
-                                  🗺
-                                </span>
-
-                                <div>
-
-                                  <strong>
-                                    Ubicación indicada manualmente
-                                  </strong>
-
-                                  <div>
-
-                                    El ciudadano seleccionó este
-                                    sector directamente en el mapa.
-                                    La ubicación es aproximada,
-                                    no proviene del GPS y no se
-                                    utiliza como corroboración
-                                    geográfica automática.
-
-                                  </div>
-
-                                </div>
-
-                              </div>
-
-                            )
-                          }
-
-
-                          {
-                            calidadGps
-                            &&
-                            (
-                              calidadGps.nivel ===
-                              'moderada'
-                              ||
-                              calidadGps.nivel ===
-                              'baja'
-                              ||
-                              calidadGps.nivel ===
-                              'desconocida'
-                            ) && (
-
-                              <div
-                                className={
-                                  `admin-alerta-gps admin-alerta-gps-${calidadGps.nivel}`
-                                }
-                              >
-
-                                <span>
-                                  ⚠
-                                </span>
-
-                                <span>
-
-                                  {
-                                    calidadGps.descripcionAdmin
-                                  }
-
-                                </span>
-
-                              </div>
-
-                            )
-                          }
-
-
-                          <div className="admin-reporte-acciones">
-
+                          <div className="admin-reporte-acciones admin-reporte-acciones-unica">
 
                             <button
-                              type="button"
-
-                              className="admin-boton-rechazar"
-
-                              disabled={
-                                procesando ===
-                                reporte.id_reporte
-                              }
+                              className="admin-boton-resolver"
 
                               onClick={() =>
-                                cambiarEstado(
-                                  reporte.id_reporte,
-                                  'rechazar'
+                                resolverReporte(
+                                  reporte.id_reporte
                                 )
                               }
                             >
 
-                              Rechazar
+                              ✓ Marcar como resuelto
 
                             </button>
-
-
-                            <button
-                              type="button"
-
-                              className="admin-boton-confirmar"
-
-                              disabled={
-                                procesando ===
-                                reporte.id_reporte
-                              }
-
-                              onClick={() =>
-                                cambiarEstado(
-                                  reporte.id_reporte,
-                                  'confirmar'
-                                )
-                              }
-                            >
-
-                              {
-                                procesando ===
-                                reporte.id_reporte
-                                  ? 'Procesando...'
-                                  : 'Confirmar'
-                              }
-
-                            </button>
-
 
                           </div>
 
@@ -2020,12 +2747,908 @@ function AdminReportes() {
                       </article>
 
                     )
-
-                  }
-                )}
+                  )
+                }
 
 
               </div>
+
+            )
+          }
+
+
+          {/* =================================================
+              HISTORIAL
+              ================================================= */}
+
+          {
+            vista ===
+            'historial'
+            && (
+
+              <>
+
+                <div className="admin-historial-filtros">
+
+
+                  <button
+                    className={
+                      filtroHistorial ===
+                      'todos'
+                        ? 'admin-filtro-activo'
+                        : ''
+                    }
+
+                    onClick={() =>
+                      setFiltroHistorial(
+                        'todos'
+                      )
+                    }
+                  >
+
+                    Todos
+                    <span>
+                      {historial.length}
+                    </span>
+
+                  </button>
+
+
+                  <button
+                    className={
+                      filtroHistorial ===
+                      'resuelto'
+                        ? 'admin-filtro-activo'
+                        : ''
+                    }
+
+                    onClick={() =>
+                      setFiltroHistorial(
+                        'resuelto'
+                      )
+                    }
+                  >
+
+                    Resueltos
+                    <span>
+                      {resueltos.length}
+                    </span>
+
+                  </button>
+
+
+                  <button
+                    className={
+                      filtroHistorial ===
+                      'rechazado'
+                        ? 'admin-filtro-activo'
+                        : ''
+                    }
+
+                    onClick={() =>
+                      setFiltroHistorial(
+                        'rechazado'
+                      )
+                    }
+                  >
+
+                    Rechazados
+                    <span>
+                      {rechazados.length}
+                    </span>
+
+                  </button>
+
+
+                </div>
+
+
+                <div className="admin-reportes-grid">
+
+
+                  {
+                    historialFiltrado.map(
+                      reporte => {
+
+                        const resuelto =
+                          reporte.estado ===
+                          'resuelto'
+
+
+                        return (
+
+                          <article
+                            className="admin-reporte-card"
+
+                            key={
+                              reporte.id_reporte
+                            }
+                          >
+
+
+                            <div className="admin-reporte-header">
+
+                              <div>
+
+                                <span>
+                                  Reporte ciudadano
+                                </span>
+
+                                <strong>
+                                  #{reporte.id_reporte}
+                                </strong>
+
+                              </div>
+
+
+                              <div
+                                className={
+                                  resuelto
+                                    ? 'admin-badge-resuelto'
+                                    : 'admin-badge-rechazado'
+                                }
+                              >
+
+                                {
+                                  resuelto
+                                    ? 'Resuelto'
+                                    : 'Rechazado'
+                                }
+
+                              </div>
+
+
+                            </div>
+
+
+                            <img
+                              className="admin-reporte-imagen"
+
+                              src={
+                                `/api${reporte.imagen_url}`
+                              }
+
+                              alt="Evidencia"
+                            />
+
+
+                            <div className="admin-reporte-body">
+
+
+                              <div className="admin-descripcion">
+
+                                <span>
+                                  Descripción
+                                </span>
+
+                                <p>
+                                  {
+                                    reporte.descripcion ||
+                                    'Sin descripción'
+                                  }
+                                </p>
+
+                              </div>
+
+
+                              <div className="admin-datos">
+
+
+                                <div>
+
+                                  <span>
+                                    Detección IA
+                                  </span>
+
+                                  <strong>
+                                    {reporte.yolo_clase || '-'}
+                                  </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                  <span>
+                                    Confianza
+                                  </span>
+
+                                  <strong>
+
+                                    {
+                                      reporte.yolo_confianza !==
+                                      null
+
+                                        ? `${
+                                            (
+                                              Number(
+                                                reporte.yolo_confianza
+                                              )
+                                              *
+                                              100
+                                            ).toFixed(1)
+                                          }%`
+
+                                        : '-'
+                                    }
+
+                                  </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                  <span>
+                                    Ubicación
+                                  </span>
+
+                                  <strong>
+
+                                    {
+                                      reporte.origen_ubicacion ===
+                                      'manual'
+                                        ? 'Manual · aproximada'
+                                        : 'GPS'
+                                    }
+
+                                  </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                  <span>
+                                    Fecha del reporte
+                                  </span>
+
+                                  <strong>
+
+                                    {
+                                      formatearFechaReporte(
+                                        reporte.fecha_reporte
+                                      )
+                                    }
+
+                                  </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                  <span>
+                                    Coordenadas
+                                  </span>
+
+                                  <strong>
+
+                                    {
+                                      Number(
+                                        reporte.latitud
+                                      ).toFixed(4)
+                                    }
+
+                                    {', '}
+
+                                    {
+                                      Number(
+                                        reporte.longitud
+                                      ).toFixed(4)
+                                    }
+
+                                  </strong>
+
+                                </div>
+
+
+                                <div>
+
+                                  <span>
+                                    Cierre
+                                  </span>
+
+                                  <strong>
+
+                                    {
+                                      resuelto
+                                        ? formatearFechaReporte(
+                                            reporte.fecha_resolucion
+                                          )
+                                        : 'Rechazado'
+                                    }
+
+                                  </strong>
+
+                                </div>
+
+
+                              </div>
+
+
+                            </div>
+
+
+                          </article>
+
+                        )
+
+                      }
+                    )
+                  }
+
+
+                </div>
+
+
+              </>
+
+            )
+          }
+
+
+          {/* =================================================
+              ESTADO DEL SISTEMA
+              ================================================= */}
+
+          {
+            vista ===
+            'sistema'
+            && (
+
+              <>
+
+                <div className="admin-system-general">
+
+
+                  <div>
+
+                    <span>
+                      Estado general
+                    </span>
+
+                    <strong
+                      className={
+                        estadoSistema?.status ===
+                        'ok'
+                          ? 'admin-status-ok-text'
+                          : 'admin-status-error-text'
+                      }
+                    >
+
+                      {
+                        cargandoSistema
+                          ? 'Comprobando...'
+                          : estadoSistema?.status ===
+                            'ok'
+                              ? '● Sistema operativo'
+                              : '● Sistema con incidencias'
+                      }
+
+                    </strong>
+
+                  </div>
+
+
+                  <div>
+
+                    <span>
+                      Última comprobación
+                    </span>
+
+                    <strong>
+
+                      {
+                        formatearComprobacion(
+                          estadoSistema?.checked_at
+                        )
+                      }
+
+                    </strong>
+
+                  </div>
+
+
+                </div>
+
+
+                {
+                  errorSistema && (
+
+                    <div className="admin-panel-error">
+                      {errorSistema}
+                    </div>
+
+                  )
+                }
+
+
+                <h3 className="admin-subtitulo">
+                  Servicios
+                </h3>
+
+
+                <div className="admin-system-grid">
+
+
+                  {
+                    Object.values(
+                      estadoSistema?.services ||
+                      {}
+                    ).map(
+                      servicio => (
+
+                        <div
+                          className="admin-system-card"
+                          key={
+                            servicio.name
+                          }
+                        >
+
+                          <div className="admin-system-card-header">
+
+                            <span className="admin-system-icon">
+                              ⚙
+                            </span>
+
+
+                            <span
+                              className={
+                                servicio.status ===
+                                'ok'
+                                  ? 'admin-status-dot admin-status-ok'
+                                  : 'admin-status-dot admin-status-error'
+                              }
+                            />
+
+                          </div>
+
+
+                          <strong>
+                            {servicio.name}
+                          </strong>
+
+
+                          <p>
+                            {servicio.description}
+                          </p>
+
+
+                          <span
+                            className={
+                              servicio.status ===
+                              'ok'
+                                ? 'admin-system-operativo'
+                                : 'admin-system-no-disponible'
+                            }
+                          >
+
+                            {
+                              servicio.status ===
+                              'ok'
+                                ? 'Operativo'
+                                : 'No disponible'
+                            }
+
+                          </span>
+
+
+                        </div>
+
+                      )
+                    )
+                  }
+
+
+                </div>
+
+
+                <h3 className="admin-subtitulo admin-subtitulo-separado">
+                  Modelos de inteligencia artificial
+                </h3>
+
+
+                <div className="admin-model-grid">
+
+
+                  {
+                    Object.values(
+                      estadoSistema?.models ||
+                      {}
+                    ).map(
+                      modelo => (
+
+                        <div
+                          className="admin-model-card"
+                          key={
+                            modelo.name
+                          }
+                        >
+
+
+                          <div className="admin-model-icon">
+                            🤖
+                          </div>
+
+
+                          <div className="admin-model-info">
+
+                            <span>
+                              Modelo
+                            </span>
+
+                            <strong>
+                              {modelo.name}
+                            </strong>
+
+                            <b>
+                              {modelo.technology}
+                            </b>
+
+                            <p>
+                              {modelo.description}
+                            </p>
+
+                          </div>
+
+
+                          <div
+                            className={
+                              modelo.status ===
+                              'ok'
+                                ? 'admin-model-status admin-model-ok'
+                                : 'admin-model-status admin-model-error'
+                            }
+                          >
+
+                            {
+                              modelo.status ===
+                              'ok'
+                                ? '● Disponible'
+                                : '● No disponible'
+                            }
+
+                          </div>
+
+
+                        </div>
+
+                      )
+                    )
+                  }
+
+
+                </div>
+
+
+              </>
+
+            )
+          }
+
+
+          {/* =================================================
+              ANÁLISIS
+              ================================================= */}
+
+          {
+            vista ===
+            'analisis'
+            && (
+
+              <>
+
+                <div className="admin-analisis-grid">
+
+
+                  <div className="admin-analisis-card">
+
+                    <span>
+                      Reportes recibidos
+                    </span>
+
+                    <strong>
+                      {totalReportes}
+                    </strong>
+
+                    <p>
+                      Total registrado en el sistema
+                    </p>
+
+                  </div>
+
+
+                  <div className="admin-analisis-card">
+
+                    <span>
+                      Confirmados
+                    </span>
+
+                    <strong>
+                      {confirmadosHistoricos}
+                    </strong>
+
+                    <p>
+                      Activos + resueltos
+                    </p>
+
+                  </div>
+
+
+                  <div className="admin-analisis-card">
+
+                    <span>
+                      Rechazados
+                    </span>
+
+                    <strong>
+                      {rechazados.length}
+                    </strong>
+
+                    <p>
+                      No publicados en el mapa
+                    </p>
+
+                  </div>
+
+
+                  <div className="admin-analisis-card">
+
+                    <span>
+                      Tasa de confirmación
+                    </span>
+
+                    <strong>
+                      {tasaConfirmacion.toFixed(1)}%
+                    </strong>
+
+                    <p>
+                      Sobre reportes ya decididos
+                    </p>
+
+                  </div>
+
+
+                  <div className="admin-analisis-card">
+
+                    <span>
+                      Tiempo medio de cierre
+                    </span>
+
+                    <strong>
+                      {
+                        formatearPromedioHoras(
+                          promedioResolucion
+                        )
+                      }
+                    </strong>
+
+                    <p>
+                      Desde validación hasta resolución
+                    </p>
+
+                  </div>
+
+
+                  <div className="admin-analisis-card">
+
+                    <span>
+                      Posibles duplicados
+                    </span>
+
+                    <strong>
+                      {totalDuplicados}
+                    </strong>
+
+                    <p>
+                      Detectados mediante pHash
+                    </p>
+
+                  </div>
+
+
+                </div>
+
+
+                <div className="admin-analisis-seccion">
+
+
+                  <h3>
+                    Estado de los reportes
+                  </h3>
+
+
+                  <div className="admin-barra-fila">
+
+                    <span>
+                      Pendientes
+                    </span>
+
+                    <div className="admin-barra-track">
+
+                      <div
+                        className="admin-barra-fill"
+                        style={{
+                          width:
+                            `${porcentaje(
+                              pendientes.length
+                            )}%`
+                        }}
+                      />
+
+                    </div>
+
+                    <b>
+                      {pendientes.length}
+                    </b>
+
+                  </div>
+
+
+                  <div className="admin-barra-fila">
+
+                    <span>
+                      Activos
+                    </span>
+
+                    <div className="admin-barra-track">
+
+                      <div
+                        className="admin-barra-fill"
+                        style={{
+                          width:
+                            `${porcentaje(
+                              activos.length
+                            )}%`
+                        }}
+                      />
+
+                    </div>
+
+                    <b>
+                      {activos.length}
+                    </b>
+
+                  </div>
+
+
+                  <div className="admin-barra-fila">
+
+                    <span>
+                      Resueltos
+                    </span>
+
+                    <div className="admin-barra-track">
+
+                      <div
+                        className="admin-barra-fill"
+                        style={{
+                          width:
+                            `${porcentaje(
+                              resueltos.length
+                            )}%`
+                        }}
+                      />
+
+                    </div>
+
+                    <b>
+                      {resueltos.length}
+                    </b>
+
+                  </div>
+
+
+                  <div className="admin-barra-fila">
+
+                    <span>
+                      Rechazados
+                    </span>
+
+                    <div className="admin-barra-track">
+
+                      <div
+                        className="admin-barra-fill"
+                        style={{
+                          width:
+                            `${porcentaje(
+                              rechazados.length
+                            )}%`
+                        }}
+                      />
+
+                    </div>
+
+                    <b>
+                      {rechazados.length}
+                    </b>
+
+                  </div>
+
+
+                </div>
+
+
+                <div className="admin-analisis-doble">
+
+
+                  <div className="admin-analisis-seccion">
+
+                    <h3>
+                      Origen de ubicación
+                    </h3>
+
+
+                    <div className="admin-analisis-detalle">
+
+                      <span>
+                        GPS
+                      </span>
+
+                      <strong>
+                        {totalGps}
+                      </strong>
+
+                    </div>
+
+
+                    <div className="admin-analisis-detalle">
+
+                      <span>
+                        Selección manual
+                      </span>
+
+                      <strong>
+                        {totalManual}
+                      </strong>
+
+                    </div>
+
+
+                  </div>
+
+
+                  <div className="admin-analisis-seccion">
+
+                    <h3>
+                      Detección mediante IA
+                    </h3>
+
+
+                    <div className="admin-analisis-detalle">
+
+                      <span>
+                        Humo detectado
+                      </span>
+
+                      <strong>
+                        {deteccionesHumo}
+                      </strong>
+
+                    </div>
+
+
+                    <div className="admin-analisis-detalle">
+
+                      <span>
+                        Fuego detectado
+                      </span>
+
+                      <strong>
+                        {deteccionesFuego}
+                      </strong>
+
+                    </div>
+
+
+                  </div>
+
+
+                </div>
+
+
+              </>
 
             )
           }
@@ -2041,6 +3664,5 @@ function AdminReportes() {
 
   )
 }
-
 
 export default AdminReportes

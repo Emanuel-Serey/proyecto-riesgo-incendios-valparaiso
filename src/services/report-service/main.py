@@ -200,10 +200,6 @@ REPORTES_CERCANOS_VENTANA_SEGUNDOS = (
 )
 
 
-# GPS con más de 500 metros de incertidumbre
-# no se considera suficientemente preciso para
-# corroborar automáticamente otro reporte.
-
 MAX_PRECISION_GPS_CORROBORACION_M = 500
 
 
@@ -472,7 +468,7 @@ def buscar_imagen_duplicada(
 
 
 # =========================================================
-# COMPLETAR PHASH DE REPORTES ANTIGUOS
+# COMPLETAR PHASH HISTÓRICOS
 # =========================================================
 
 def completar_hashes_existentes():
@@ -593,14 +589,6 @@ def completar_hashes_existentes():
                 )
 
 
-        print(
-            "[Report Service] "
-            f"{len(actualizaciones)} "
-            "hashes de imágenes existentes "
-            "fueron calculados."
-        )
-
-
     except SQLAlchemyError as error:
 
         print(
@@ -639,7 +627,7 @@ app = FastAPI(
         "Reportes Ciudadanos"
     ),
 
-    version="1.5",
+    version="1.7",
 
     lifespan=
         lifespan,
@@ -719,7 +707,6 @@ def validar_imagen(
             formato = (
                 imagen.format
             )
-
 
             imagen.verify()
 
@@ -833,7 +820,6 @@ def analizar_imagen_yolo(
             "Error ejecutando YOLO:"
         )
 
-
         print(
             error
         )
@@ -908,7 +894,6 @@ def analizar_imagen_yolo(
                     confianza
                 )
 
-
                 mejor_clase = (
                     nombre_clase
                 )
@@ -965,16 +950,13 @@ SELECT
 
     r.estado,
 
-
     ST_Y(
         r.ubicacion::geometry
     ) AS latitud,
 
-
     ST_X(
         r.ubicacion::geometry
     ) AS longitud,
-
 
     r.precision_gps_m,
 
@@ -982,13 +964,11 @@ SELECT
 
     r.imagen_url,
 
-
     r.yolo_detectado,
 
     r.yolo_clase,
 
     r.yolo_confianza,
-
 
     r.imagen_phash,
 
@@ -998,24 +978,22 @@ SELECT
 
     r.distancia_phash,
 
-
     r.fecha_creacion,
 
+    r.fecha_validacion,
+
+    r.fecha_resolucion,
 
     COALESCE(
         cercania.reportes_cercanos_count,
         0
     ) AS reportes_cercanos_count,
 
-
     cercania.reportes_cercanos_ids,
-
 
     cercania.distancia_reporte_cercano_m
 
-
 FROM public.reportes_ciudadanos AS r
-
 
 LEFT JOIN LATERAL
 (
@@ -1023,7 +1001,6 @@ LEFT JOIN LATERAL
 
         COUNT(*)::INTEGER
         AS reportes_cercanos_count,
-
 
         ARRAY_AGG(
             r2.id_reporte
@@ -1036,7 +1013,6 @@ LEFT JOIN LATERAL
         )
         AS reportes_cercanos_ids,
 
-
         MIN(
             ST_Distance(
                 r2.ubicacion,
@@ -1045,19 +1021,12 @@ LEFT JOIN LATERAL
         )
         AS distancia_reporte_cercano_m
 
-
     FROM public.reportes_ciudadanos AS r2
-
 
     WHERE
 
         r2.id_reporte <>
         r.id_reporte
-
-
-        -- ===============================================
-        -- SOLO REPORTES ACTIVOS
-        -- ===============================================
 
         AND
         r2.estado IN (
@@ -1065,21 +1034,11 @@ LEFT JOIN LATERAL
             'confirmado'
         )
 
-
-        -- ===============================================
-        -- EL REPORTE PRINCIPAL NO PUEDE SER DUPLICADO
-        -- ===============================================
-
         AND
         COALESCE(
             r.posible_duplicado,
             FALSE
         ) = FALSE
-
-
-        -- ===============================================
-        -- EL REPORTE RELACIONADO TAMPOCO
-        -- ===============================================
 
         AND
         COALESCE(
@@ -1087,50 +1046,31 @@ LEFT JOIN LATERAL
             FALSE
         ) = FALSE
 
-
-        -- ===============================================
-        -- SOLO GPS REAL EN EL REPORTE PRINCIPAL
-        -- ===============================================
-
         AND
         r.origen_ubicacion =
         'gps'
-
 
         AND
         r.precision_gps_m
         IS NOT NULL
 
-
         AND
         r.precision_gps_m
         <=
         {MAX_PRECISION_GPS_CORROBORACION_M}
-
-
-        -- ===============================================
-        -- SOLO GPS REAL EN EL REPORTE RELACIONADO
-        -- ===============================================
 
         AND
         r2.origen_ubicacion =
         'gps'
 
-
         AND
         r2.precision_gps_m
         IS NOT NULL
-
 
         AND
         r2.precision_gps_m
         <=
         {MAX_PRECISION_GPS_CORROBORACION_M}
-
-
-        -- ===============================================
-        -- VENTANA TEMPORAL
-        -- ===============================================
 
         AND
         ABS(
@@ -1145,22 +1085,12 @@ LEFT JOIN LATERAL
         <=
         {REPORTES_CERCANOS_VENTANA_SEGUNDOS}
 
-
-        -- ===============================================
-        -- RADIO GEOGRÁFICO
-        -- ===============================================
-
         AND
         ST_DWithin(
             r2.ubicacion,
             r.ubicacion,
             {REPORTES_CERCANOS_RADIO_M}
         )
-
-
-        -- ===============================================
-        -- MISMA FOTO NO CUENTA COMO CORROBORACIÓN
-        -- ===============================================
 
         AND NOT
         (
@@ -1178,7 +1108,6 @@ LEFT JOIN LATERAL
             r2.imagen_phash
         )
 
-
 ) AS cercania
 
 ON TRUE
@@ -1186,7 +1115,7 @@ ON TRUE
 
 
 # =========================================================
-# NORMALIZAR REPORTE
+# NORMALIZAR
 # =========================================================
 
 def normalizar_reporte(
@@ -1274,10 +1203,6 @@ def normalizar_reporte(
     )
 
 
-    # =====================================================
-    # UBICACIÓN APTA PARA CORROBORACIÓN AUTOMÁTICA
-    # =====================================================
-
     ubicacion_utilizable = (
 
         origen ==
@@ -1306,24 +1231,20 @@ def normalizar_reporte(
                 ]
             ),
 
-
         "fecha_reporte":
             fila[
                 "fecha_reporte"
             ],
-
 
         "descripcion":
             fila[
                 "descripcion"
             ],
 
-
         "estado":
             fila[
                 "estado"
             ],
-
 
         "latitud":
             float(
@@ -1332,7 +1253,6 @@ def normalizar_reporte(
                 ]
             ),
 
-
         "longitud":
             float(
                 fila[
@@ -1340,46 +1260,37 @@ def normalizar_reporte(
                 ]
             ),
 
-
         "precision_gps_m":
             precision,
-
 
         "origen_ubicacion":
             origen,
 
-
         "ubicacion_utilizable_cercania":
             ubicacion_utilizable,
-
 
         "imagen_url":
             fila[
                 "imagen_url"
             ],
 
-
         "yolo_detectado":
             fila[
                 "yolo_detectado"
             ],
-
 
         "yolo_clase":
             fila[
                 "yolo_clase"
             ],
 
-
         "yolo_confianza":
             confianza,
-
 
         "imagen_phash":
             fila[
                 "imagen_phash"
             ],
-
 
         "posible_duplicado":
             bool(
@@ -1387,7 +1298,6 @@ def normalizar_reporte(
                     "posible_duplicado"
                 ]
             ),
-
 
         "reporte_duplicado_id":
             (
@@ -1406,7 +1316,6 @@ def normalizar_reporte(
                 else None
             ),
 
-
         "distancia_phash":
             (
                 int(
@@ -1424,7 +1333,6 @@ def normalizar_reporte(
                 else None
             ),
 
-
         "reportes_cercanos_count":
             int(
                 fila[
@@ -1433,7 +1341,6 @@ def normalizar_reporte(
                 or
                 0
             ),
-
 
         "reportes_cercanos_ids":
             [
@@ -1445,18 +1352,14 @@ def normalizar_reporte(
                 in ids_cercanos
             ],
 
-
         "distancia_reporte_cercano_m":
             distancia_cercana,
-
 
         "radio_cercania_m":
             REPORTES_CERCANOS_RADIO_M,
 
-
         "ventana_cercania_min":
             REPORTES_CERCANOS_VENTANA_MINUTOS,
-
 
         "posible_mismo_evento":
             (
@@ -1471,18 +1374,23 @@ def normalizar_reporte(
                 0
             ),
 
-
         "fecha_creacion":
             fila[
                 "fecha_creacion"
             ],
 
+        "fecha_validacion":
+            fila[
+                "fecha_validacion"
+            ],
+
+        "fecha_resolucion":
+            fila[
+                "fecha_resolucion"
+            ],
+
     }
 
-
-# =========================================================
-# OBTENER REPORTE DE DB
-# =========================================================
 
 def obtener_reporte_db(
     id_reporte: int,
@@ -1573,6 +1481,82 @@ def db_health():
 
 
 # =========================================================
+# HEALTH DEL MODELO YOLO
+# =========================================================
+
+@app.get("/model-health")
+def model_health():
+
+    try:
+
+        modelo = (
+            obtener_modelo_yolo()
+        )
+
+
+        nombres = getattr(
+            modelo,
+            "names",
+            {},
+        )
+
+
+        if isinstance(
+            nombres,
+            dict,
+        ):
+
+            clases = [
+                str(
+                    nombre
+                )
+
+                for nombre
+                in nombres.values()
+            ]
+
+        else:
+
+            clases = [
+                str(
+                    nombre
+                )
+
+                for nombre
+                in nombres
+            ]
+
+
+        return {
+
+            "status":
+                "ok",
+
+            "model":
+                "YOLOv8",
+
+            "purpose":
+                "fire_smoke_detection",
+
+            "classes":
+                clases,
+
+        }
+
+
+    except Exception as error:
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Detector de fuego y humo "
+                "no disponible: "
+                f"{error}"
+            ),
+        )
+
+
+# =========================================================
 # CREAR REPORTE
 # =========================================================
 
@@ -1594,10 +1578,6 @@ async def crear_reporte(
     imagen: UploadFile = File(...),
 
 ):
-
-    # =====================================================
-    # VALIDAR COORDENADAS
-    # =====================================================
 
     if not (
         -90
@@ -1636,7 +1616,8 @@ async def crear_reporte(
         is not None
         and
         precision_gps_m
-        < 0
+        <
+        0
     ):
 
         raise HTTPException(
@@ -1646,16 +1627,6 @@ async def crear_reporte(
             ),
         )
 
-
-    # =====================================================
-    # ORIGEN DE UBICACIÓN
-    # =====================================================
-
-    # Si el frontend envía precisión GPS:
-    # origen = gps.
-    #
-    # Si no envía precisión:
-    # origen = manual.
 
     origen_ubicacion = (
 
@@ -1670,10 +1641,6 @@ async def crear_reporte(
 
     )
 
-
-    # =====================================================
-    # DESCRIPCIÓN
-    # =====================================================
 
     if descripcion:
 
@@ -1704,10 +1671,6 @@ async def crear_reporte(
             descripcion = None
 
 
-    # =====================================================
-    # LEER IMAGEN
-    # =====================================================
-
     contenido = (
         await imagen.read()
     )
@@ -1719,10 +1682,6 @@ async def crear_reporte(
         )
     )
 
-
-    # =====================================================
-    # PHASH
-    # =====================================================
 
     imagen_phash = (
         calcular_phash_bytes(
@@ -1737,10 +1696,6 @@ async def crear_reporte(
         )
     )
 
-
-    # =====================================================
-    # GUARDAR IMAGEN
-    # =====================================================
 
     ruta_imagen = None
 
@@ -1761,10 +1716,6 @@ async def crear_reporte(
             f"{nombre_archivo}"
         )
 
-
-        # =================================================
-        # YOLO
-        # =================================================
 
         resultado_yolo = (
             analizar_imagen_yolo(
@@ -1788,10 +1739,6 @@ async def crear_reporte(
         )
 
 
-        # =================================================
-        # INSERT
-        # =================================================
-
         with engine.begin() as conexion:
 
             id_reporte = (
@@ -1803,36 +1750,25 @@ async def crear_reporte(
                             public.reportes_ciudadanos
                         (
                             descripcion,
-
                             estado,
-
                             ubicacion,
-
                             precision_gps_m,
-
                             origen_ubicacion,
-
                             imagen_url,
 
                             yolo_detectado,
-
                             yolo_clase,
-
                             yolo_confianza,
 
                             imagen_phash,
-
                             posible_duplicado,
-
                             reporte_duplicado_id,
-
                             distancia_phash
                         )
 
                         VALUES
                         (
                             :descripcion,
-
                             :estado,
 
                             ST_SetSRID(
@@ -1844,23 +1780,16 @@ async def crear_reporte(
                             )::geography,
 
                             :precision_gps_m,
-
                             :origen_ubicacion,
-
                             :imagen_url,
 
                             :yolo_detectado,
-
                             :yolo_clase,
-
                             :yolo_confianza,
 
                             :imagen_phash,
-
                             :posible_duplicado,
-
                             :reporte_duplicado_id,
-
                             :distancia_phash
                         )
 
@@ -1958,7 +1887,7 @@ async def crear_reporte(
 
 
 # =========================================================
-# LISTAR TODOS LOS REPORTES
+# TODOS
 # =========================================================
 
 @app.get("/reportes")
@@ -1991,7 +1920,7 @@ def listar_reportes():
 
 
 # =========================================================
-# REPORTES PENDIENTES
+# PENDIENTES
 # =========================================================
 
 @app.get(
@@ -2030,7 +1959,7 @@ def listar_pendientes():
 
 
 # =========================================================
-# REPORTES CONFIRMADOS
+# CONFIRMADOS
 # =========================================================
 
 @app.get(
@@ -2069,7 +1998,47 @@ def listar_confirmados():
 
 
 # =========================================================
-# OBTENER UN REPORTE
+# RESUELTOS
+# =========================================================
+
+@app.get(
+    "/reportes/estado/resueltos"
+)
+def listar_resueltos():
+
+    with engine.connect() as conexion:
+
+        filas = conexion.execute(
+            text(
+                SELECT_REPORTE
+                +
+                """
+                WHERE
+                    r.estado =
+                    'resuelto'
+
+                ORDER BY
+                    r.fecha_resolucion DESC NULLS LAST,
+                    r.fecha_reporte DESC
+                """
+            )
+        ).mappings().all()
+
+
+    return [
+
+        normalizar_reporte(
+            fila
+        )
+
+        for fila
+        in filas
+
+    ]
+
+
+# =========================================================
+# REPORTE INDIVIDUAL
 # =========================================================
 
 @app.get(
@@ -2103,7 +2072,7 @@ def obtener_reporte(
 
 
 # =========================================================
-# CONFIRMAR REPORTE
+# CONFIRMAR
 # =========================================================
 
 @app.patch(
@@ -2125,7 +2094,13 @@ def confirmar_reporte(
 
                     SET
                         estado =
-                        'confirmado'
+                        'confirmado',
+
+                        fecha_validacion =
+                        NOW(),
+
+                        fecha_resolucion =
+                        NULL
 
                     WHERE
                         id_reporte =
@@ -2188,7 +2163,7 @@ def confirmar_reporte(
 
 
 # =========================================================
-# RECHAZAR REPORTE
+# RECHAZAR
 # =========================================================
 
 @app.patch(
@@ -2263,6 +2238,95 @@ def rechazar_reporte(
             status_code=409,
             detail=(
                 "El reporte ya fue procesado"
+            ),
+        )
+
+
+    return obtener_reporte_db(
+        id_reporte
+    )
+
+
+# =========================================================
+# RESOLVER
+# =========================================================
+
+@app.patch(
+    "/reportes/{id_reporte}/resolver"
+)
+def resolver_reporte(
+    id_reporte: int,
+):
+
+    with engine.begin() as conexion:
+
+        actualizado = (
+            conexion.execute(
+
+                text(
+                    """
+                    UPDATE
+                        public.reportes_ciudadanos
+
+                    SET
+                        estado =
+                        'resuelto',
+
+                        fecha_resolucion =
+                        NOW()
+
+                    WHERE
+                        id_reporte =
+                        :id_reporte
+
+                    AND
+                        estado =
+                        'confirmado'
+
+                    RETURNING
+                        id_reporte
+                    """
+                ),
+
+                {
+                    "id_reporte":
+                        id_reporte,
+                },
+
+            ).scalar_one_or_none()
+        )
+
+
+    if (
+        actualizado
+        is None
+    ):
+
+        existente = (
+            obtener_reporte_db(
+                id_reporte
+            )
+        )
+
+
+        if (
+            existente
+            is None
+        ):
+
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Reporte no encontrado"
+                ),
+            )
+
+
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Solo un reporte confirmado "
+                "puede marcarse como resuelto"
             ),
         )
 

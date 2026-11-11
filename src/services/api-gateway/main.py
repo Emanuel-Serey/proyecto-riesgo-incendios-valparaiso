@@ -50,27 +50,23 @@ from pydantic import BaseModel
 
 
 # =========================================================
-# VARIABLES DE ENTORNO
+# VARIABLES
 # =========================================================
 
 def cargar_variables_entorno():
-    """
-    Busca el archivo .env recorriendo las carpetas
-    superiores desde este archivo.
-
-    Esto permite ejecutar el API Gateway desde su
-    propia carpeta y seguir utilizando el .env
-    ubicado en la raíz del proyecto.
-    """
 
     archivo_actual = Path(
         __file__
     ).resolve()
 
     for carpeta in archivo_actual.parents:
-        archivo_env = carpeta / ".env"
+
+        archivo_env = (
+            carpeta / ".env"
+        )
 
         if archivo_env.exists():
+
             load_dotenv(
                 archivo_env
             )
@@ -82,10 +78,6 @@ def cargar_variables_entorno():
 
 cargar_variables_entorno()
 
-
-# =========================================================
-# SERVICIOS
-# =========================================================
 
 DATA_SERVICE = os.getenv(
     "DATA_SERVICE_URL",
@@ -102,10 +94,6 @@ REPORT_SERVICE = os.getenv(
     "http://127.0.0.1:8004",
 )
 
-
-# =========================================================
-# CONFIGURACIÓN DE AUTENTICACIÓN
-# =========================================================
 
 ADMIN_USERNAME = os.getenv(
     "ADMIN_USERNAME",
@@ -151,7 +139,7 @@ app = FastAPI(
         "API Gateway - "
         "Riesgo de Incendios Forestales"
     ),
-    version="2.5",
+    version="2.8",
 )
 
 
@@ -169,31 +157,35 @@ Instrumentator().instrument(
 # =========================================================
 
 class TokenResponse(BaseModel):
+
     access_token: str
+
     token_type: str
+
     expires_in: int
 
 
 class AdminActual(BaseModel):
+
     username: str
+
     role: str
 
 
 # =========================================================
-# UTILIDADES DE AUTENTICACIÓN
+# AUTH
 # =========================================================
 
 def verificar_configuracion_auth():
-    """
-    Comprueba que las variables necesarias para
-    autenticación estén configuradas.
-    """
 
     if (
         not ADMIN_USERNAME
-        or not ADMIN_PASSWORD_HASH
-        or not JWT_SECRET
+        or
+        not ADMIN_PASSWORD_HASH
+        or
+        not JWT_SECRET
     ):
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -206,18 +198,16 @@ def verificar_configuracion_auth():
 def verificar_password(
     password: str,
 ) -> bool:
-    """
-    Verifica la contraseña recibida contra
-    el hash Argon2 guardado en .env.
-    """
 
     try:
+
         return password_hasher.verify(
             password,
             ADMIN_PASSWORD_HASH,
         )
 
     except Exception:
+
         return False
 
 
@@ -225,94 +215,97 @@ def autenticar_admin(
     username: str,
     password: str,
 ) -> bool:
-    """
-    Comprueba usuario y contraseña.
-    """
 
     verificar_configuracion_auth()
 
-    usuario_correcto = (
+
+    return (
+
         hmac.compare_digest(
             username,
             ADMIN_USERNAME,
         )
-    )
 
-    password_correcto = (
+        and
+
         verificar_password(
             password
         )
-    )
 
-    return (
-        usuario_correcto
-        and password_correcto
     )
 
 
 def crear_access_token(
     username: str,
 ) -> str:
-    """
-    Genera JWT para el administrador.
-    """
 
     ahora = datetime.now(
         timezone.utc
     )
 
+
     expiracion = (
         ahora
-        + timedelta(
-            minutes=(
+        +
+        timedelta(
+            minutes=
                 ACCESS_TOKEN_EXPIRE_MINUTES
-            )
         )
     )
 
+
     payload = {
-        "sub": username,
-        "role": "admin",
-        "iat": ahora,
-        "exp": expiracion,
+
+        "sub":
+            username,
+
+        "role":
+            "admin",
+
+        "iat":
+            ahora,
+
+        "exp":
+            expiracion,
+
     }
 
-    token = jwt.encode(
+
+    return jwt.encode(
         payload,
         JWT_SECRET,
-        algorithm=JWT_ALGORITHM,
+        algorithm=
+            JWT_ALGORITHM,
     )
-
-    return token
 
 
 def obtener_admin_actual(
+
     token: str = Depends(
         oauth2_scheme
     ),
+
 ) -> AdminActual:
-    """
-    Valida el Bearer JWT enviado por el frontend.
-    """
 
     verificar_configuracion_auth()
 
-    excepcion_credenciales = (
-        HTTPException(
-            status_code=(
-                status.HTTP_401_UNAUTHORIZED
-            ),
-            detail=(
-                "Token inválido o expirado"
-            ),
-            headers={
-                "WWW-Authenticate":
-                    "Bearer"
-            },
-        )
+
+    excepcion = HTTPException(
+        status_code=
+            status.HTTP_401_UNAUTHORIZED,
+
+        detail=
+            "Token inválido o expirado",
+
+        headers={
+            "WWW-Authenticate":
+                "Bearer"
+        },
     )
 
+
     try:
+
         payload = jwt.decode(
             token,
             JWT_SECRET,
@@ -321,76 +314,93 @@ def obtener_admin_actual(
             ],
         )
 
+
         username = payload.get(
             "sub"
         )
+
 
         role = payload.get(
             "role"
         )
 
+
         if (
             username is None
-            or role != "admin"
+            or
+            role !=
+            "admin"
         ):
-            raise excepcion_credenciales
+
+            raise excepcion
+
 
         if not hmac.compare_digest(
             username,
             ADMIN_USERNAME,
         ):
-            raise excepcion_credenciales
+
+            raise excepcion
+
 
     except InvalidTokenError:
-        raise excepcion_credenciales
+
+        raise excepcion
+
 
     return AdminActual(
-        username=username,
-        role=role,
+        username=
+            username,
+
+        role=
+            role,
     )
 
 
 # =========================================================
-# AUTH - LOGIN
+# LOGIN
 # =========================================================
 
 @app.post(
     "/auth/token",
-    response_model=TokenResponse,
+    response_model=
+        TokenResponse,
 )
 def login_admin(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+
+    form_data:
+        OAuth2PasswordRequestForm
+        =
+        Depends(),
+
 ):
-    """
-    Login OAuth2.
 
-    Recibe username/password y devuelve un JWT.
-    """
-
-    autenticado = autenticar_admin(
+    if not autenticar_admin(
         form_data.username,
         form_data.password,
-    )
+    ):
 
-    if not autenticado:
         raise HTTPException(
-            status_code=(
-                status.HTTP_401_UNAUTHORIZED
-            ),
-            detail=(
-                "Usuario o contraseña incorrectos"
-            ),
+            status_code=
+                status.HTTP_401_UNAUTHORIZED,
+
+            detail=
+                "Usuario o contraseña incorrectos",
+
             headers={
                 "WWW-Authenticate":
                     "Bearer"
             },
         )
 
+
     token = crear_access_token(
         form_data.username
     )
 
+
     return {
+
         "access_token":
             token,
 
@@ -398,153 +408,157 @@ def login_admin(
             "bearer",
 
         "expires_in":
-            ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            ACCESS_TOKEN_EXPIRE_MINUTES
+            *
+            60,
+
     }
 
 
-# =========================================================
-# AUTH - USUARIO ACTUAL
-# =========================================================
-
 @app.get(
     "/auth/me",
-    response_model=AdminActual,
+    response_model=
+        AdminActual,
 )
 def auth_me(
+
     admin: AdminActual = Depends(
         obtener_admin_actual
     ),
+
 ):
-    """
-    Permite al frontend verificar si el JWT
-    todavía es válido.
-    """
 
     return admin
 
 
 # =========================================================
-# HEALTH DEL API GATEWAY
+# HEALTH
 # =========================================================
 
 @app.get("/health")
 def health():
 
     return {
-        "status": "ok"
+        "status":
+            "ok"
     }
 
 
-# =========================================================
-# ESTADO GENERAL DEL SISTEMA
-# =========================================================
+def consultar_health(
+    url: str,
+    timeout: int = 4,
+):
+
+    try:
+
+        respuesta = requests.get(
+            url,
+            timeout=
+                timeout,
+        )
+
+
+        if (
+            respuesta.status_code
+            !=
+            200
+        ):
+
+            return {
+                "status":
+                    "unavailable"
+            }
+
+
+        datos = respuesta.json()
+
+
+        return {
+
+            "status":
+                (
+                    "ok"
+
+                    if
+                    datos.get(
+                        "status"
+                    )
+                    ==
+                    "ok"
+
+                    else
+                    "unavailable"
+                ),
+
+            "data":
+                datos,
+
+        }
+
+
+    except (
+        requests.RequestException,
+        ValueError,
+    ):
+
+        return {
+            "status":
+                "unavailable"
+        }
+
 
 @app.get("/health/system")
 def health_system():
 
-    servicios = {
-
-        "data_service": {
-            "url":
-                DATA_SERVICE,
-
-            "status":
-                "unavailable",
-        },
-
-        "risk_service": {
-            "url":
-                RISK_SERVICE,
-
-            "status":
-                "unavailable",
-        },
-
-    }
+    data_estado = consultar_health(
+        f"{DATA_SERVICE}/health"
+    )
 
 
-    # -----------------------------------------------------
-    # DATA SERVICE
-    # -----------------------------------------------------
-
-    try:
-        respuesta = requests.get(
-            f"{DATA_SERVICE}/health",
-            timeout=3,
-        )
-
-        if (
-            respuesta.status_code
-            == 200
-        ):
-            datos = respuesta.json()
-
-            if (
-                datos.get("status")
-                == "ok"
-            ):
-                servicios[
-                    "data_service"
-                ]["status"] = "ok"
-
-    except requests.RequestException:
-        pass
+    risk_estado = consultar_health(
+        f"{RISK_SERVICE}/health"
+    )
 
 
-    # -----------------------------------------------------
-    # RISK SERVICE
-    # -----------------------------------------------------
+    operativo = (
 
-    try:
-        respuesta = requests.get(
-            f"{RISK_SERVICE}/health",
-            timeout=3,
-        )
+        data_estado[
+            "status"
+        ] == "ok"
 
-        if (
-            respuesta.status_code
-            == 200
-        ):
-            datos = respuesta.json()
+        and
 
-            if (
-                datos.get("status")
-                == "ok"
-            ):
-                servicios[
-                    "risk_service"
-                ]["status"] = "ok"
+        risk_estado[
+            "status"
+        ] == "ok"
 
-    except requests.RequestException:
-        pass
-
-
-    sistema_operativo = all(
-        servicio["status"] == "ok"
-        for servicio
-        in servicios.values()
     )
 
 
     return {
 
-        "status": (
-            "ok"
-            if sistema_operativo
-            else "degraded"
-        ),
+        "status":
+            (
+                "ok"
+
+                if
+                operativo
+
+                else
+                "degraded"
+            ),
 
         "services": {
 
             "data_service":
-                servicios[
-                    "data_service"
-                ]["status"],
+                data_estado[
+                    "status"
+                ],
 
             "risk_service":
-                servicios[
-                    "risk_service"
-                ]["status"],
+                risk_estado[
+                    "status"
+                ],
 
         },
 
@@ -552,10 +566,230 @@ def health_system():
 
 
 # =========================================================
-# CONSULTA DE RIESGO
+# ESTADO DEL SISTEMA - ADMIN
 # =========================================================
 
-@app.get("/riesgo/{comuna}")
+@app.get(
+    "/admin/system/status"
+)
+def admin_system_status(
+
+    admin: AdminActual = Depends(
+        obtener_admin_actual
+    ),
+
+):
+
+    data_estado = consultar_health(
+        f"{DATA_SERVICE}/health"
+    )
+
+
+    risk_estado = consultar_health(
+        f"{RISK_SERVICE}/health"
+    )
+
+
+    report_estado = consultar_health(
+        f"{REPORT_SERVICE}/health"
+    )
+
+
+    report_db_estado = consultar_health(
+        f"{REPORT_SERVICE}/db-health"
+    )
+
+
+    yolo_estado = consultar_health(
+        f"{REPORT_SERVICE}/model-health",
+        timeout=30,
+    )
+
+
+    servicios = {
+
+        "api_gateway": {
+
+            "name":
+                "API Gateway",
+
+            "description":
+                "Punto de entrada principal del sistema",
+
+            "status":
+                "ok",
+
+        },
+
+        "data_service": {
+
+            "name":
+                "Servicio de datos",
+
+            "description":
+                "Variables meteorológicas y datos de entrada",
+
+            "status":
+                data_estado[
+                    "status"
+                ],
+
+        },
+
+        "risk_service": {
+
+            "name":
+                "Servicio de riesgo",
+
+            "description":
+                "Inferencia preventiva y explicabilidad",
+
+            "status":
+                risk_estado[
+                    "status"
+                ],
+
+        },
+
+        "report_service": {
+
+            "name":
+                "Servicio de reportes",
+
+            "description":
+                "Gestión de reportes ciudadanos",
+
+            "status":
+                report_estado[
+                    "status"
+                ],
+
+        },
+
+        "report_database": {
+
+            "name":
+                "Base de datos de reportes",
+
+            "description":
+                "PostgreSQL / PostGIS",
+
+            "status":
+                report_db_estado[
+                    "status"
+                ],
+
+        },
+
+    }
+
+
+    modelos = {
+
+        "risk_model": {
+
+            "name":
+                "Modelo de riesgo preventivo",
+
+            "technology":
+                "Random Forest",
+
+            "description":
+                "Predicción de riesgo de incendio por comuna",
+
+            "status":
+                risk_estado[
+                    "status"
+                ],
+
+        },
+
+        "fire_smoke_detector": {
+
+            "name":
+                "Detector de fuego y humo",
+
+            "technology":
+                "YOLOv8",
+
+            "description":
+                "Análisis de imágenes de reportes ciudadanos",
+
+            "status":
+                yolo_estado[
+                    "status"
+                ],
+
+        },
+
+    }
+
+
+    estados = [
+
+        item[
+            "status"
+        ]
+
+        for item
+        in servicios.values()
+
+    ] + [
+
+        item[
+            "status"
+        ]
+
+        for item
+        in modelos.values()
+
+    ]
+
+
+    estado_general = (
+
+        "ok"
+
+        if all(
+            estado ==
+            "ok"
+
+            for estado
+            in estados
+        )
+
+        else
+        "degraded"
+
+    )
+
+
+    return {
+
+        "status":
+            estado_general,
+
+        "checked_at":
+            datetime.now(
+                timezone.utc
+            ).isoformat(),
+
+        "services":
+            servicios,
+
+        "models":
+            modelos,
+
+    }
+
+
+# =========================================================
+# RIESGO
+# =========================================================
+
+@app.get(
+    "/riesgo/{comuna}"
+)
 def obtener_riesgo(
     comuna: str,
 ):
@@ -566,17 +800,16 @@ def obtener_riesgo(
     )
 
 
-    # -----------------------------------------------------
-    # OBTENER VARIABLES
-    # -----------------------------------------------------
-
     try:
+
         respuesta_datos = requests.get(
             f"{DATA_SERVICE}/variables/{comuna_url}",
             timeout=10,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -587,8 +820,10 @@ def obtener_riesgo(
 
     if (
         respuesta_datos.status_code
-        == 404
+        ==
+        404
     ):
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -599,8 +834,10 @@ def obtener_riesgo(
 
     if (
         respuesta_datos.status_code
-        != 200
+        !=
+        200
     ):
+
         raise HTTPException(
             status_code=502,
             detail=(
@@ -614,10 +851,6 @@ def obtener_riesgo(
         respuesta_datos.json()
     )
 
-
-    # -----------------------------------------------------
-    # PREPARAR ENTRADA DEL MODELO
-    # -----------------------------------------------------
 
     datos_modelo = {
 
@@ -664,20 +897,21 @@ def obtener_riesgo(
     }
 
 
-    # -----------------------------------------------------
-    # INFERENCIA + SHAP
-    # -----------------------------------------------------
-
     try:
+
         respuesta_riesgo = requests.post(
             f"{RISK_SERVICE}/predecir",
 
-            json=datos_modelo,
+            json=
+                datos_modelo,
 
-            timeout=15,
+            timeout=
+                15,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -688,8 +922,10 @@ def obtener_riesgo(
 
     if (
         respuesta_riesgo.status_code
-        != 200
+        !=
+        200
     ):
+
         raise HTTPException(
             status_code=502,
             detail=(
@@ -766,8 +1002,7 @@ def obtener_riesgo(
 
 
 # =========================================================
-# REPORTES CIUDADANOS - CREAR
-# PÚBLICO
+# CREAR REPORTE
 # =========================================================
 
 @app.post("/reportes")
@@ -790,21 +1025,29 @@ async def crear_reporte_ciudadano(
 ):
 
     try:
+
         contenido_imagen = (
             await imagen.read()
         )
 
 
         datos = {
+
             "latitud":
-                str(latitud),
+                str(
+                    latitud
+                ),
 
             "longitud":
-                str(longitud),
+                str(
+                    longitud
+                ),
+
         }
 
 
         if descripcion:
+
             datos[
                 "descripcion"
             ] = descripcion
@@ -814,6 +1057,7 @@ async def crear_reporte_ciudadano(
             precision_gps_m
             is not None
         ):
+
             datos[
                 "precision_gps_m"
             ] = str(
@@ -835,14 +1079,19 @@ async def crear_reporte_ciudadano(
         respuesta = requests.post(
             f"{REPORT_SERVICE}/reportes",
 
-            data=datos,
+            data=
+                datos,
 
-            files=archivos,
+            files=
+                archivos,
 
-            timeout=90,
+            timeout=
+                90,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -852,11 +1101,14 @@ async def crear_reporte_ciudadano(
 
 
     try:
+
         contenido = (
             respuesta.json()
         )
 
+
     except ValueError:
+
         raise HTTPException(
             status_code=502,
             detail=(
@@ -867,16 +1119,18 @@ async def crear_reporte_ciudadano(
 
 
     return JSONResponse(
-        status_code=(
-            respuesta.status_code
-        ),
 
-        content=contenido,
+        status_code=
+            respuesta.status_code,
+
+        content=
+            contenido,
+
     )
 
 
 # =========================================================
-# REPORTES CONFIRMADOS - PÚBLICO
+# CONFIRMADOS PÚBLICOS
 # =========================================================
 
 @app.get(
@@ -885,6 +1139,7 @@ async def crear_reporte_ciudadano(
 def obtener_reportes_confirmados():
 
     try:
+
         respuesta = requests.get(
 
             f"{REPORT_SERVICE}"
@@ -894,7 +1149,9 @@ def obtener_reportes_confirmados():
             timeout=10,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -905,8 +1162,10 @@ def obtener_reportes_confirmados():
 
     if (
         respuesta.status_code
-        != 200
+        !=
+        200
     ):
+
         raise HTTPException(
             status_code=502,
             detail=(
@@ -920,8 +1179,7 @@ def obtener_reportes_confirmados():
 
 
 # =========================================================
-# IMÁGENES DE REPORTES
-# PÚBLICO
+# IMÁGENES
 # =========================================================
 
 @app.get(
@@ -933,6 +1191,7 @@ def obtener_imagen_reporte(
 ):
 
     try:
+
         respuesta = requests.get(
 
             f"{REPORT_SERVICE}"
@@ -942,7 +1201,9 @@ def obtener_imagen_reporte(
             timeout=10,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -953,8 +1214,10 @@ def obtener_imagen_reporte(
 
     if (
         respuesta.status_code
-        == 404
+        ==
+        404
     ):
+
         raise HTTPException(
             status_code=404,
             detail=(
@@ -965,8 +1228,10 @@ def obtener_imagen_reporte(
 
     if (
         respuesta.status_code
-        != 200
+        !=
+        200
     ):
+
         raise HTTPException(
             status_code=502,
             detail=(
@@ -990,8 +1255,7 @@ def obtener_imagen_reporte(
 
 
 # =========================================================
-# ADMIN - REPORTES PENDIENTES
-# PROTEGIDO CON JWT
+# ADMIN PENDIENTES
 # =========================================================
 
 @app.get(
@@ -1006,6 +1270,7 @@ def obtener_reportes_pendientes(
 ):
 
     try:
+
         respuesta = requests.get(
 
             f"{REPORT_SERVICE}"
@@ -1015,7 +1280,9 @@ def obtener_reportes_pendientes(
             timeout=10,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -1026,8 +1293,10 @@ def obtener_reportes_pendientes(
 
     if (
         respuesta.status_code
-        != 200
+        !=
+        200
     ):
+
         raise HTTPException(
             status_code=502,
             detail=(
@@ -1041,8 +1310,155 @@ def obtener_reportes_pendientes(
 
 
 # =========================================================
-# ADMIN - CONFIRMAR REPORTE
-# PROTEGIDO CON JWT
+# ADMIN ACTIVOS
+# =========================================================
+
+@app.get(
+    "/admin/reportes/confirmados"
+)
+def obtener_reportes_activos_admin(
+
+    admin: AdminActual = Depends(
+        obtener_admin_actual
+    ),
+
+):
+
+    try:
+
+        respuesta = requests.get(
+
+            f"{REPORT_SERVICE}"
+            "/reportes/estado/"
+            "confirmados",
+
+            timeout=10,
+        )
+
+
+    except requests.RequestException:
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Report Service no disponible"
+            ),
+        )
+
+
+    if (
+        respuesta.status_code
+        !=
+        200
+    ):
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Error al consultar "
+                "reportes activos"
+            ),
+        )
+
+
+    return respuesta.json()
+
+
+# =========================================================
+# ADMIN HISTORIAL
+# =========================================================
+
+@app.get(
+    "/admin/reportes/historial"
+)
+def obtener_historial_reportes(
+
+    admin: AdminActual = Depends(
+        obtener_admin_actual
+    ),
+
+):
+
+    try:
+
+        respuesta = requests.get(
+            f"{REPORT_SERVICE}/reportes",
+            timeout=10,
+        )
+
+
+    except requests.RequestException:
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Report Service no disponible"
+            ),
+        )
+
+
+    if (
+        respuesta.status_code
+        !=
+        200
+    ):
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Error al consultar "
+                "el historial"
+            ),
+        )
+
+
+    reportes = (
+        respuesta.json()
+    )
+
+
+    historial = [
+
+        reporte
+
+        for reporte
+        in reportes
+
+        if reporte.get(
+            "estado"
+        ) in {
+            "resuelto",
+            "rechazado",
+        }
+
+    ]
+
+
+    historial.sort(
+
+        key=lambda reporte:
+            (
+                reporte.get(
+                    "fecha_resolucion"
+                )
+                or
+                reporte.get(
+                    "fecha_reporte"
+                )
+                or
+                ""
+            ),
+
+        reverse=True,
+
+    )
+
+
+    return historial
+
+
+# =========================================================
+# CONFIRMAR
 # =========================================================
 
 @app.patch(
@@ -1060,6 +1476,7 @@ def confirmar_reporte(
 ):
 
     try:
+
         respuesta = requests.patch(
 
             f"{REPORT_SERVICE}"
@@ -1070,7 +1487,9 @@ def confirmar_reporte(
             timeout=10,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -1079,35 +1498,16 @@ def confirmar_reporte(
         )
 
 
-    try:
-        contenido = (
-            respuesta.json()
-        )
-
-    except ValueError:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Respuesta inválida "
-                "de Report Service"
-            ),
-        )
-
-
     return JSONResponse(
-
         status_code=
             respuesta.status_code,
-
         content=
-            contenido,
-
+            respuesta.json(),
     )
 
 
 # =========================================================
-# ADMIN - RECHAZAR REPORTE
-# PROTEGIDO CON JWT
+# RECHAZAR
 # =========================================================
 
 @app.patch(
@@ -1125,6 +1525,7 @@ def rechazar_reporte(
 ):
 
     try:
+
         respuesta = requests.patch(
 
             f"{REPORT_SERVICE}"
@@ -1135,7 +1536,9 @@ def rechazar_reporte(
             timeout=10,
         )
 
+
     except requests.RequestException:
+
         raise HTTPException(
             status_code=503,
             detail=(
@@ -1144,27 +1547,58 @@ def rechazar_reporte(
         )
 
 
+    return JSONResponse(
+        status_code=
+            respuesta.status_code,
+        content=
+            respuesta.json(),
+    )
+
+
+# =========================================================
+# RESOLVER
+# =========================================================
+
+@app.patch(
+    "/reportes/"
+    "{id_reporte}/resolver"
+)
+def resolver_reporte(
+
+    id_reporte: int,
+
+    admin: AdminActual = Depends(
+        obtener_admin_actual
+    ),
+
+):
+
     try:
-        contenido = (
-            respuesta.json()
+
+        respuesta = requests.patch(
+
+            f"{REPORT_SERVICE}"
+            "/reportes/"
+            f"{id_reporte}"
+            "/resolver",
+
+            timeout=10,
         )
 
-    except ValueError:
+
+    except requests.RequestException:
+
         raise HTTPException(
-            status_code=502,
+            status_code=503,
             detail=(
-                "Respuesta inválida "
-                "de Report Service"
+                "Report Service no disponible"
             ),
         )
 
 
     return JSONResponse(
-
         status_code=
             respuesta.status_code,
-
         content=
-            contenido,
-
+            respuesta.json(),
     )
