@@ -2,14 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY src/services/ai-service/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt \
-    && groupadd --system app \
-    && useradd --system --gid app --create-home app
+    && groupadd --system --gid 10001 app \
+    && useradd --system --uid 10001 --gid 10001 --create-home app
 
-COPY --chown=app:app src/services/ai-service/main.py ./main.py
+COPY --chown=10001:10001 src/services/ai-service/main.py ./main.py
 
-USER app
+USER 10001:10001
 
 CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]

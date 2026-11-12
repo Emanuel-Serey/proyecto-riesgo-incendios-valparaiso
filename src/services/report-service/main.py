@@ -313,30 +313,30 @@ def validar_ubicacion_region(
 # BASE DE DATOS
 # =========================================================
 
-REPORT_DB_HOST = os.getenv(
-    "REPORT_DB_HOST",
+DB_HOST = os.getenv(
+    "DB_HOST",
     "127.0.0.1",
 )
 
-REPORT_DB_PORT = int(
+DB_PORT = int(
     os.getenv(
-        "REPORT_DB_PORT",
+        "DB_PORT",
         "5432",
     )
 )
 
-REPORT_DB_NAME = os.getenv(
-    "REPORT_DB_NAME",
-    "incendios_reportes_dev",
+DB_NAME = os.getenv(
+    "DB_NAME",
+    "incendios_valparaiso",
 )
 
-REPORT_DB_USER = os.getenv(
-    "REPORT_DB_USER",
-    "reportes_app",
+DB_USER = os.getenv(
+    "DB_USER",
+    "postgres",
 )
 
-REPORT_DB_PASSWORD = os.getenv(
-    "REPORT_DB_PASSWORD",
+DB_PASSWORD = os.getenv(
+    "DB_PASSWORD",
     "",
 )
 
@@ -347,19 +347,19 @@ DATABASE_URL = URL.create(
         "postgresql+psycopg2",
 
     username=
-        REPORT_DB_USER,
+        DB_USER,
 
     password=
-        REPORT_DB_PASSWORD,
+        DB_PASSWORD,
 
     host=
-        REPORT_DB_HOST,
+        DB_HOST,
 
     port=
-        REPORT_DB_PORT,
+        DB_PORT,
 
     database=
-        REPORT_DB_NAME,
+        DB_NAME,
 )
 
 
@@ -1679,7 +1679,7 @@ def db_health():
                 "ok",
 
             "database":
-                REPORT_DB_NAME,
+                DB_NAME,
 
             "postgis_version":
                 version,

@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-dotenv
+python-multipart
+
+sqlalchemy
+psycopg2-binary
+
+shapely
+
+ultralytics
+huggingface-hub
+
+Pillow
+ImageHash==4.3.2

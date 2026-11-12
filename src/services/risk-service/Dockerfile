@@ -2,14 +2,20 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY src/services/risk-service/requirements.txt ./requirements.txt
 
-RUN pip install --no-cache-dir -r requirements.txt \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.txt \
     && groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid 10001 --create-home app
 
 COPY --chown=10001:10001 src/services/risk-service/main.py ./main.py
-COPY --chown=10001:10001 models/random_forest_incendios.joblib ./models/random_forest_incendios.joblib
+
+COPY --chown=10001:10001 \
+    models/random_forest_incendios.joblib \
+    ./models/random_forest_incendios.joblib
 
 USER 10001:10001
 

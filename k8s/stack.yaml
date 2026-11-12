@@ -231,6 +231,254 @@ spec:
 
 
 # =========================================================
+# REPORT SERVICE - ALMACENAMIENTO DE IMAGENES
+# =========================================================
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: report-images-pvc
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 2Gi
+
+
+# =========================================================
+# REPORT SERVICE
+# =========================================================
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-service
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: report-service
+
+  template:
+    metadata:
+      labels:
+        app: report-service
+
+    spec:
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+        fsGroup: 10001
+
+      containers:
+        - name: report-service
+
+          image: proyecto-incendios-report-service:latest
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8004
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+
+            capabilities:
+              drop:
+                - ALL
+
+          env:
+            - name: DB_HOST
+              value: host.docker.internal
+
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_PORT
+
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_NAME
+
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_USER
+
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: DB_PASSWORD
+
+            - name: YOLO_CONFIDENCE
+              value: "0.25"
+
+            - name: PHASH_DUPLICATE_MAX_DISTANCE
+              value: "6"
+
+          volumeMounts:
+            - name: report-images
+              mountPath: /app/data/reportes
+
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+
+            limits:
+              cpu: "2"
+              memory: 2Gi
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+
+            initialDelaySeconds: 20
+            periodSeconds: 20
+
+      volumes:
+        - name: report-images
+          persistentVolumeClaim:
+            claimName: report-images-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: report-service
+
+spec:
+  selector:
+    app: report-service
+
+  ports:
+    - port: 8004
+      targetPort: 8004
+
+
+# =========================================================
+# AI SERVICE - GEMINI
+# =========================================================
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-service
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: ai-service
+
+  template:
+    metadata:
+      labels:
+        app: ai-service
+
+    spec:
+
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+
+      containers:
+        - name: ai-service
+
+          image: proyecto-incendios-ai-service:latest
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8003
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+
+            capabilities:
+              drop:
+                - ALL
+
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: GEMINI_API_KEY
+
+            - name: GEMINI_MODEL
+              value: gemini-3.5-flash-lite
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+
+            limits:
+              cpu: 500m
+              memory: 256Mi
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+
+            initialDelaySeconds: 10
+            periodSeconds: 20
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-service
+
+spec:
+  selector:
+    app: ai-service
+
+  ports:
+    - port: 8003
+      targetPort: 8003
+
+
+# =========================================================
 # API GATEWAY
 # =========================================================
 
@@ -283,6 +531,33 @@ spec:
 
             - name: RISK_SERVICE_URL
               value: http://risk-service:8002
+
+            - name: AI_SERVICE_URL
+              value: http://ai-service:8003
+
+            - name: REPORT_SERVICE_URL
+              value: http://report-service:8004
+
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: ADMIN_USERNAME
+
+            - name: ADMIN_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: ADMIN_PASSWORD_HASH
+
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: incendios-secrets
+                  key: JWT_SECRET
+
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              value: "60"
 
           resources:
             requests:
