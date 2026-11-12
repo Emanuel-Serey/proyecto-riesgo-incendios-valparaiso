@@ -1,11 +1,7 @@
+import asyncio
 import os
 
-import boto3
-
-from botocore.exceptions import (
-    ClientError,
-    NoCredentialsError
-)
+from dotenv import load_dotenv
 
 from fastapi import (
     FastAPI,
@@ -14,29 +10,41 @@ from fastapi import (
 
 from pydantic import BaseModel
 
+from google import genai
 
-# =========================================================
-# CONFIGURACION
-# =========================================================
-
-AWS_REGION = os.getenv(
-    "AWS_DEFAULT_REGION",
-    "us-east-1"
-)
-
-BEDROCK_MODEL_ID = os.getenv(
-    "BEDROCK_MODEL_ID",
-    "anthropic.claude-3-haiku-20240307-v1:0"
+from google.genai import (
+    errors,
+    types
 )
 
 
 # =========================================================
-# BEDROCK
+# VARIABLES DE ENTORNO
 # =========================================================
 
-bedrock = boto3.client(
-    "bedrock-runtime",
-    region_name=AWS_REGION
+load_dotenv()
+
+
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY"
+)
+
+GEMINI_MODEL = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-3.5-flash-lite"
+)
+
+
+# =========================================================
+# GEMINI
+# =========================================================
+
+gemini = (
+    genai.Client(
+        api_key=GEMINI_API_KEY
+    )
+    if GEMINI_API_KEY
+    else None
 )
 
 
@@ -46,7 +54,7 @@ bedrock = boto3.client(
 
 app = FastAPI(
     title="AI Service - Explicacion de Riesgo",
-    version="1.0"
+    version="2.2"
 )
 
 
@@ -95,46 +103,210 @@ def construir_prompt(
     )
 
 
+    # =====================================================
+    # ENFOQUE SEGÚN NIVEL DE RIESGO
+    # =====================================================
+
+    nivel = datos.nivel_riesgo.strip().lower()
+
+
+    if nivel == "alto":
+
+        enfoque = """
+El nivel de riesgo es ALTO.
+
+Explica principalmente cuáles son las condiciones que
+están contribuyendo a aumentar el riesgo.
+
+Utiliza un tono preventivo y prudente, sin alarmar
+al usuario.
+
+La última oración debe indicar que esta información
+corresponde a una evaluación preventiva y que el nivel
+de riesgo alto no significa que necesariamente ocurrirá
+un incendio.
+""".strip()
+
+
+    elif nivel == "medio":
+
+        enfoque = """
+El nivel de riesgo es MEDIO.
+
+Explica de manera equilibrada cuáles son las condiciones
+que están aumentando el riesgo y cuáles pueden estar
+ayudando a moderarlo.
+
+No presentes la situación como una emergencia ni como
+una condición de peligro inmediato.
+
+La última oración debe indicar que esta información
+corresponde a una evaluación preventiva y que el nivel
+de riesgo medio no significa que necesariamente ocurrirá
+un incendio.
+""".strip()
+
+
+    else:
+
+        enfoque = """
+El nivel de riesgo es BAJO.
+
+Explica principalmente qué condiciones están ayudando
+a mantener un nivel de riesgo bajo.
+
+No digas que no existe riesgo ni que es imposible que
+ocurra un incendio.
+
+Utiliza un tono tranquilo, informativo y preventivo.
+
+La última oración debe indicar que esta información
+corresponde a una evaluación preventiva y que un nivel
+de riesgo bajo no significa que el riesgo de incendio
+sea inexistente.
+""".strip()
+
+
+    # =====================================================
+    # PROMPT
+    # =====================================================
+
     return f"""
-Analiza el resultado de un sistema preventivo de riesgo
-de incendios forestales para la Región de Valparaíso.
+Debes explicar a una persona común por qué una comuna
+presenta determinado nivel preventivo de riesgo de
+incendio forestal.
+
+La persona que leerá la respuesta NO tiene conocimientos
+de inteligencia artificial, estadística ni ciencia de datos.
+
+Utiliza solamente la siguiente información:
 
 Comuna:
 {datos.comuna}
 
-Fecha evaluada:
+Fecha:
 {datos.fecha_prediccion}
 
 Nivel de riesgo:
 {datos.nivel_riesgo}
 
-Índice del modelo:
-{datos.score_modelo:.3f}
-
-Variables utilizadas:
+Condiciones observadas:
 
 - Temperatura media: {datos.temperatura_media:.1f} °C
 - Humedad media: {datos.humedad_media:.1f} %
 - Viento medio: {datos.viento_medio:.2f} nudos
 - Cobertura vegetal: {datos.vegetacion_cobertura}
-- Promedio histórico: {datos.incendios_historicos:.1f} incendios/año
+- Historial de incendios de la zona:
+  {datos.incendios_historicos:.1f} incendios/año
 
-Factores principales obtenidos mediante SHAP:
+Condiciones que tuvieron mayor influencia en el resultado:
 
 {factores}
 
-Redacta una explicación preventiva en español
-de máximo tres oraciones.
 
-Debes cumplir estas reglas:
+ENFOQUE QUE DEBES UTILIZAR PARA ESTA RESPUESTA:
 
-1. Explica principalmente usando los factores SHAP.
-2. No inventes información que no aparezca en los datos.
-3. No afirmes que ocurrirá un incendio.
-4. No describas el índice como una probabilidad exacta.
-5. Deja claro que se trata de una evaluación preventiva
-   de riesgo.
-6. Usa lenguaje comprensible para un usuario no técnico.
+{enfoque}
+
+
+REGLAS OBLIGATORIAS:
+
+1. Escribe en español claro y cotidiano.
+
+2. Explica directamente qué condiciones están influyendo
+   en el nivel de riesgo.
+
+3. No menciones bajo ninguna circunstancia:
+   - modelos
+   - Random Forest
+   - SHAP
+   - inteligencia artificial
+   - algoritmos
+   - machine learning
+   - scores
+   - índices
+   - variables
+   - predicciones del modelo
+   - factores técnicos
+
+4. No digas frases como:
+   "el modelo determinó",
+   "el algoritmo considera",
+   "la predicción indica",
+   "el índice muestra"
+   ni expresiones similares.
+
+5. No inventes causas ni condiciones que no estén
+   presentes en la información entregada.
+
+6. No afirmes que ocurrirá un incendio.
+
+7. No presentes el nivel de riesgo como una certeza
+   de que ocurrirá o no ocurrirá un incendio.
+
+8. La explicación debe tener un máximo de tres oraciones.
+
+9. Prioriza las condiciones que aparecen como las de
+   mayor influencia, pero puedes utilizar el resto de
+   la información si ayuda a explicar el resultado.
+
+10. No incluyas en la respuesta final valores numéricos
+    exactos de temperatura, humedad, viento, historial
+    de incendios ni ningún indicador interno.
+
+    Utiliza esos valores únicamente para comprender
+    las condiciones y exprésalos en lenguaje natural,
+    por ejemplo:
+    "temperaturas elevadas",
+    "mayor humedad",
+    "presencia de viento"
+    o "antecedentes de incendios en la zona".
+
+11. Prefiere expresiones naturales como:
+    "temperaturas elevadas",
+    "baja humedad",
+    "presencia de viento",
+    "abundante vegetación"
+    y "antecedentes de incendios en la zona".
+
+12. No utilices las palabras "probabilidad",
+    "porcentaje de probabilidad" ni expresiones que puedan
+    hacer pensar que se está calculando la posibilidad
+    exacta de que ocurra un incendio.
+
+13. Evita lenguaje alarmista o categórico como:
+    "peligro considerable",
+    "situación peligrosa",
+    "alto peligro",
+    "impulsa considerablemente"
+    o expresiones similares.
+
+14. Utiliza expresiones prudentes como:
+    "puede favorecer",
+    "contribuye al nivel de riesgo",
+    "puede influir"
+    o "es una de las condiciones consideradas".
+
+15. No califiques una condición como "frecuente",
+    "extrema", "muy alta", "muy baja", "crítica"
+    o similar a menos que esa clasificación venga
+    explícitamente indicada en los datos recibidos.
+
+
+ESTILO DE REFERENCIA PARA RIESGO ALTO:
+
+"Quilpué presenta un nivel de riesgo alto principalmente
+por las temperaturas elevadas, la baja humedad y la
+presencia de viento, condiciones que pueden favorecer
+la propagación del fuego. La abundante vegetación y los
+antecedentes de incendios en la zona también contribuyen
+a este nivel de riesgo. Esta información corresponde a
+una evaluación preventiva y no significa que
+necesariamente ocurrirá un incendio."
+
+No copies el ejemplo literalmente.
+Adapta siempre la explicación a los datos recibidos
+y al nivel de riesgo correspondiente.
 """.strip()
 
 
@@ -146,9 +318,21 @@ Debes cumplir estas reglas:
 def health():
 
     return {
-        "status": "ok",
-        "provider": "aws-bedrock",
-        "model": BEDROCK_MODEL_ID
+        "status":
+            "ok"
+            if gemini
+            else "degraded",
+
+        "provider":
+            "google-gemini",
+
+        "model":
+            GEMINI_MODEL,
+
+        "api_key_configured":
+            bool(
+                GEMINI_API_KEY
+            )
     }
 
 
@@ -157,9 +341,21 @@ def health():
 # =========================================================
 
 @app.post("/explicar")
-def explicar(
+async def explicar(
     datos: SolicitudExplicacion
 ):
+
+    if gemini is None:
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Gemini no está configurado. "
+                "Falta la variable "
+                "GEMINI_API_KEY."
+            )
+        )
+
 
     prompt = construir_prompt(
         datos
@@ -168,51 +364,62 @@ def explicar(
 
     try:
 
-        respuesta = bedrock.converse(
-            modelId=BEDROCK_MODEL_ID,
+        llamada_gemini = (
+            gemini
+            .aio
+            .models
+            .generate_content(
+                model=GEMINI_MODEL,
 
-            system=[
-                {
-                    "text": (
-                        "Eres un asistente especializado "
-                        "en comunicar resultados de un "
-                        "sistema preventivo de incendios "
-                        "forestales. Debes ser preciso, "
-                        "prudente y no inventar datos."
-                    )
-                }
-            ],
+                contents=prompt,
 
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "text": prompt
-                        }
-                    ]
-                }
-            ],
+                config=types.GenerateContentConfig(
 
-            inferenceConfig={
-                "maxTokens": 220,
-                "temperature": 0.2,
-                "topP": 0.9
-            }
+                    system_instruction=(
+                        "Eres un asistente de orientación "
+                        "preventiva sobre incendios forestales. "
+                        "Tu función es traducir información "
+                        "técnica interna del sistema a lenguaje "
+                        "simple para cualquier ciudadano. "
+                        "Nunca debes mencionar modelos, "
+                        "algoritmos, inteligencia artificial, "
+                        "SHAP, Random Forest, scores, índices "
+                        "ni otros conceptos técnicos. "
+                        "Habla únicamente de las condiciones "
+                        "que influyen en el nivel de riesgo."
+                    ),
+
+                    temperature=0.2,
+
+                    top_p=0.9,
+
+                    max_output_tokens=220
+                )
+            )
+        )
+
+
+        respuesta = await asyncio.wait_for(
+            llamada_gemini,
+            timeout=30
         )
 
 
         explicacion = (
-            respuesta[
-                "output"
-            ][
-                "message"
-            ][
-                "content"
-            ][0][
-                "text"
-            ]
-        )
+            respuesta.text
+            or ""
+        ).strip()
+
+
+        if not explicacion:
+
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Gemini respondió sin "
+                    "contenido de texto."
+                )
+            )
 
 
         return {
@@ -223,46 +430,96 @@ def explicar(
                 datos.nivel_riesgo,
 
             "explicacion":
-                explicacion.strip(),
+                explicacion,
 
             "proveedor":
-                "AWS Bedrock",
+                "Google Gemini",
 
             "modelo":
-                BEDROCK_MODEL_ID
+                GEMINI_MODEL
         }
 
 
-    except NoCredentialsError:
+    except asyncio.TimeoutError:
 
         raise HTTPException(
-            status_code=503,
+            status_code=504,
             detail=(
-                "No existen credenciales "
-                "AWS configuradas"
+                "Gemini tardó más de "
+                "30 segundos en responder."
             )
         )
 
 
-    except ClientError as error:
+    except HTTPException:
 
-        codigo = (
-            error.response
-            .get(
-                "Error",
-                {}
-            )
-            .get(
-                "Code",
-                "BedrockError"
-            )
+        raise
+
+
+    except errors.APIError as error:
+
+        codigo = getattr(
+            error,
+            "code",
+            None
         )
+
+
+        if codigo == 429:
+
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    "Se alcanzó temporalmente "
+                    "el límite de uso de Gemini."
+                )
+            )
+
+
+        if codigo in (
+            401,
+            403
+        ):
+
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    "Gemini rechazó las credenciales "
+                    "o el acceso al modelo."
+                )
+            )
+
+
+        if codigo == 404:
+
+            raise HTTPException(
+                status_code=502,
+                detail=(
+                    f"El modelo {GEMINI_MODEL} "
+                    "no está disponible para "
+                    "esta cuenta."
+                )
+            )
+
+
+        if codigo == 503:
+
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Gemini está temporalmente "
+                    "saturado o sin capacidad "
+                    "disponible."
+                )
+            )
+
 
         raise HTTPException(
             status_code=502,
             detail=(
-                "AWS Bedrock no pudo "
-                f"procesar la solicitud: {codigo}"
+                "Google Gemini no pudo "
+                "procesar la solicitud. "
+                f"Código: {codigo}"
             )
         )
 

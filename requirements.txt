@@ -21,6 +21,7 @@ shap==0.51.0
 GeoAlchemy2
 
 boto3
+google-genai
 
 python-multipart
 ultralytics

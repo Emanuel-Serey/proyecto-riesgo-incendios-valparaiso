@@ -1,0 +1,243 @@
+/* =========================================================
+   IMÁGENES AMPLIABLES
+   ========================================================= */
+
+.admin-reporte-imagen,
+.reporte-popup-imagen {
+  cursor: zoom-in;
+
+  transition:
+    opacity 0.18s ease,
+    filter 0.18s ease;
+}
+
+
+.admin-reporte-imagen:hover,
+.reporte-popup-imagen:hover {
+  opacity: 0.92;
+
+  filter:
+    brightness(0.96);
+}
+
+
+/* =========================================================
+   FONDO DEL VISOR
+   ========================================================= */
+
+.visor-imagen-fondo {
+  position: fixed;
+
+  z-index: 12000;
+
+  inset: 0;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 40px;
+
+  background:
+    rgba(2, 6, 23, 0.92);
+
+  backdrop-filter:
+    blur(4px);
+
+  cursor: zoom-out;
+}
+
+
+/* =========================================================
+   CONTENEDOR
+   ========================================================= */
+
+.visor-imagen-contenido {
+  width: fit-content;
+
+  max-width:
+    min(
+      1200px,
+      calc(100vw - 80px)
+    );
+
+  max-height:
+    calc(100vh - 80px);
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  overflow: hidden;
+
+  border-radius: 10px;
+
+  background: #0f172a;
+
+  box-shadow:
+    0 24px 80px
+    rgba(0, 0, 0, 0.55);
+
+  cursor: default;
+}
+
+
+/* =========================================================
+   IMAGEN COMPLETA
+   ========================================================= */
+
+.visor-imagen-contenido img {
+  display: block;
+
+  width: auto;
+  height: auto;
+
+  max-width: 100%;
+
+  max-height:
+    calc(100vh - 80px);
+
+  object-fit: contain;
+
+  border-radius: 10px;
+}
+
+
+/* =========================================================
+   BOTÓN CERRAR
+   ========================================================= */
+
+.visor-imagen-cerrar {
+  position: fixed;
+
+  z-index: 12001;
+
+  top: 22px;
+  right: 26px;
+
+  width: 46px;
+  height: 46px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.2);
+
+  border-radius: 50%;
+
+  background:
+    rgba(15, 23, 42, 0.85);
+
+  color: white;
+
+  font-size: 31px;
+  font-weight: 300;
+
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+
+.visor-imagen-cerrar:hover {
+  background:
+    rgba(51, 65, 85, 0.95);
+
+  transform:
+    scale(1.05);
+}
+
+
+/* =========================================================
+   AYUDA
+   ========================================================= */
+
+.visor-imagen-ayuda {
+  position: fixed;
+
+  left: 50%;
+  bottom: 16px;
+
+  transform:
+    translateX(-50%);
+
+  padding:
+    7px 12px;
+
+  border-radius: 999px;
+
+  background:
+    rgba(15, 23, 42, 0.75);
+
+  color:
+    rgba(255, 255, 255, 0.78);
+
+  font-size: 11px;
+
+  white-space: nowrap;
+
+  pointer-events: none;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (
+  max-width: 700px
+) {
+
+  .visor-imagen-fondo {
+    padding: 18px;
+  }
+
+
+  .visor-imagen-contenido {
+    max-width:
+      calc(100vw - 36px);
+
+    max-height:
+      calc(100vh - 90px);
+  }
+
+
+  .visor-imagen-contenido img {
+    max-height:
+      calc(100vh - 90px);
+  }
+
+
+  .visor-imagen-cerrar {
+    top: 12px;
+    right: 12px;
+
+    width: 42px;
+    height: 42px;
+
+    font-size: 28px;
+  }
+
+
+  .visor-imagen-ayuda {
+    max-width:
+      calc(100vw - 30px);
+
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+
+    font-size: 10px;
+  }
+
+}

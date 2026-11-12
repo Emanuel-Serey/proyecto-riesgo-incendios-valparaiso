@@ -17,6 +17,7 @@ import './index.css'
 
 import App from './App.jsx'
 import AdminReportes from './AdminReportes.jsx'
+import ImagenAmpliable from './ImagenAmpliable.jsx'
 
 
 createRoot(
@@ -26,6 +27,9 @@ createRoot(
   <StrictMode>
 
     <BrowserRouter>
+
+      <ImagenAmpliable />
+
 
       <Routes>
 

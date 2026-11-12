@@ -94,6 +94,11 @@ REPORT_SERVICE = os.getenv(
     "http://127.0.0.1:8004",
 )
 
+AI_SERVICE = os.getenv(
+    "AI_SERVICE_URL",
+    "http://ai-service:8003",
+)
+
 
 ADMIN_USERNAME = os.getenv(
     "ADMIN_USERNAME",
@@ -787,9 +792,7 @@ def admin_system_status(
 # RIESGO
 # =========================================================
 
-@app.get(
-    "/riesgo/{comuna}"
-)
+@app.get("/riesgo/{comuna}")
 def obtener_riesgo(
     comuna: str,
 ):
@@ -996,6 +999,195 @@ def obtener_riesgo(
             riesgo.get(
                 "factores_principales",
                 [],
+            ),
+
+    }
+
+# =========================================================
+# RIESGO + EXPLICACION PARA EL USUARIO
+# =========================================================
+
+@app.get(
+    "/riesgo/{comuna}/explicado"
+)
+def obtener_riesgo_explicado(
+    comuna: str,
+):
+
+    # -----------------------------------------------------
+    # OBTENER RESULTADO REAL DEL SISTEMA
+    # -----------------------------------------------------
+
+    resultado = obtener_riesgo(
+        comuna
+    )
+
+
+    # -----------------------------------------------------
+    # PREPARAR DATOS PARA AI SERVICE
+    # -----------------------------------------------------
+
+    datos_explicacion = {
+
+        "comuna":
+            resultado[
+                "comuna"
+            ],
+
+        "fecha_prediccion":
+            resultado[
+                "fecha_prediccion"
+            ],
+
+        "nivel_riesgo":
+            resultado[
+                "nivel_riesgo"
+            ],
+
+        "score_modelo":
+            resultado[
+                "score_modelo"
+            ],
+
+        "temperatura_media":
+            resultado[
+                "temperatura_media"
+            ],
+
+        "humedad_media":
+            resultado[
+                "humedad_media"
+            ],
+
+        "viento_medio":
+            resultado[
+                "viento_medio"
+            ],
+
+        "vegetacion_cobertura":
+            resultado[
+                "vegetacion_cobertura"
+            ],
+
+        "incendios_historicos":
+            resultado[
+                "incendios_historicos"
+            ],
+
+        "factores_principales":
+            resultado.get(
+                "factores_principales",
+                [],
+            ),
+
+    }
+
+
+    # -----------------------------------------------------
+    # CONSULTAR GEMINI
+    # -----------------------------------------------------
+
+    try:
+
+        respuesta_ai = requests.post(
+
+            f"{AI_SERVICE}/explicar",
+
+            json=
+                datos_explicacion,
+
+            timeout=
+                35,
+        )
+
+
+    except requests.RequestException:
+
+        # La IA es complementaria.
+        # El resultado preventivo debe seguir funcionando.
+
+        return {
+
+            **resultado,
+
+            "explicacion":
+                None,
+
+            "explicacion_disponible":
+                False,
+
+        }
+
+
+    # -----------------------------------------------------
+    # SI GEMINI FALLA
+    # -----------------------------------------------------
+
+    if (
+        respuesta_ai.status_code
+        !=
+        200
+    ):
+
+        return {
+
+            **resultado,
+
+            "explicacion":
+                None,
+
+            "explicacion_disponible":
+                False,
+
+        }
+
+
+    # -----------------------------------------------------
+    # RESPUESTA DE GEMINI
+    # -----------------------------------------------------
+
+    try:
+
+        datos_ai = (
+            respuesta_ai.json()
+        )
+
+    except ValueError:
+
+        return {
+
+            **resultado,
+
+            "explicacion":
+                None,
+
+            "explicacion_disponible":
+                False,
+
+        }
+
+
+    explicacion = (
+        datos_ai.get(
+            "explicacion"
+        )
+    )
+
+
+    # -----------------------------------------------------
+    # RESPUESTA FINAL
+    # -----------------------------------------------------
+
+    return {
+
+        **resultado,
+
+        "explicacion":
+            explicacion,
+
+        "explicacion_disponible":
+            bool(
+                explicacion
             ),
 
     }

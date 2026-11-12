@@ -15,6 +15,7 @@ import './App.css'
 
 import AdminReportes from './AdminReportes'
 import ReporteIncendio from './ReporteIncendio'
+import OrientacionIncendios from './OrientacionIncendios'
 
 
 const COMUNAS = [
@@ -127,6 +128,7 @@ function ConfigurarMapa({
   return null
 }
 
+
 function formatearFechaReportePublico(
   fecha
 ) {
@@ -134,8 +136,10 @@ function formatearFechaReportePublico(
     return '-'
   }
 
+
   const valor =
     new Date(fecha)
+
 
   if (
     Number.isNaN(
@@ -144,6 +148,7 @@ function formatearFechaReportePublico(
   ) {
     return '-'
   }
+
 
   return valor.toLocaleDateString(
     'es-CL',
@@ -164,8 +169,10 @@ function formatearHoraReportePublico(
     return '-'
   }
 
+
   const valor =
     new Date(fecha)
+
 
   if (
     Number.isNaN(
@@ -174,6 +181,7 @@ function formatearHoraReportePublico(
   ) {
     return '-'
   }
+
 
   return valor.toLocaleTimeString(
     'es-CL',
@@ -194,8 +202,10 @@ function antiguedadReportePublico(
     return ''
   }
 
+
   const valor =
     new Date(fecha)
+
 
   if (
     Number.isNaN(
@@ -205,27 +215,33 @@ function antiguedadReportePublico(
     return ''
   }
 
+
   const diferencia =
     Date.now() -
     valor.getTime()
+
 
   const minutos =
     Math.floor(
       diferencia / 60000
     )
 
+
   if (minutos < 1) {
     return 'Hace menos de 1 min'
   }
+
 
   if (minutos < 60) {
     return `Hace ${minutos} min`
   }
 
+
   const horas =
     Math.floor(
       minutos / 60
     )
+
 
   if (horas < 24) {
     return horas === 1
@@ -233,15 +249,18 @@ function antiguedadReportePublico(
       : `Hace ${horas} horas`
   }
 
+
   const dias =
     Math.floor(
       horas / 24
     )
 
+
   return dias === 1
     ? 'Hace 1 día'
     : `Hace ${dias} días`
 }
+
 
 function App() {
   const [
@@ -361,18 +380,22 @@ function App() {
             comunas
           )
 
+
           setRegionGeojson(
             region
           )
+
 
           setMascaraGeojson(
             mascara
           )
 
         } catch (err) {
+
           setError(
             err.message
           )
+
         }
 
       }
@@ -418,22 +441,29 @@ function App() {
             datos.status ===
             'ok'
           ) {
+
             setEstadoSistema(
               'operativo'
             )
 
           } else {
+
             setEstadoSistema(
               'degradado'
             )
+
           }
 
         } catch {
+
           if (activo) {
+
             setEstadoSistema(
               'desconectado'
             )
+
           }
+
         }
 
       }
@@ -450,11 +480,14 @@ function App() {
 
 
     return () => {
+
       activo = false
+
 
       clearInterval(
         intervalo
       )
+
     }
 
   }, [])
@@ -483,9 +516,11 @@ function App() {
 
 
           if (!respuesta.ok) {
+
             throw new Error(
               'No fue posible cargar los reportes'
             )
+
           }
 
 
@@ -494,17 +529,23 @@ function App() {
 
 
           if (activo) {
+
             setReportesConfirmados(
               datos
             )
+
           }
 
         } catch {
+
           if (activo) {
+
             setReportesConfirmados(
               []
             )
+
           }
+
         }
 
       }
@@ -527,16 +568,20 @@ function App() {
 
 
     return () => {
+
       activo = false
+
 
       clearInterval(
         intervalo
       )
 
+
       window.removeEventListener(
         'reportes-actualizados',
         cargarReportes
       )
+
     }
 
   }, [])
@@ -553,10 +598,12 @@ function App() {
     ) => {
 
       setCargando(true)
+
       setError('')
 
 
       try {
+
         const respuesta =
           await fetch(
             `/api/riesgo/${
@@ -568,11 +615,13 @@ function App() {
 
 
         if (!respuesta.ok) {
+
           let mensaje =
             'No fue posible consultar el riesgo'
 
 
           try {
+
             const detalle =
               await respuesta.json()
 
@@ -580,18 +629,23 @@ function App() {
             if (
               detalle.detail
             ) {
+
               mensaje =
                 detalle.detail
+
             }
 
           } catch {
+
             // Mensaje genérico.
+
           }
 
 
           throw new Error(
             mensaje
           )
+
         }
 
 
@@ -603,20 +657,26 @@ function App() {
           comunaSeleccionada
         )
 
+
         setResultado(
           datos
         )
 
       } catch (err) {
+
         setResultado(null)
+
 
         setError(
           err.message
         )
 
       } finally {
+
         setCargando(false)
+
       }
+
     }
 
 
@@ -633,7 +693,9 @@ function App() {
       resultado.comuna !==
         nombreComuna
     ) {
+
       return '#e2e8f0'
+
     }
 
 
@@ -644,15 +706,20 @@ function App() {
       case 'Bajo':
         return '#16a34a'
 
+
       case 'Medio':
         return '#f59e0b'
+
 
       case 'Alto':
         return '#dc2626'
 
+
       default:
         return '#e2e8f0'
+
     }
+
   }
 
 
@@ -707,13 +774,16 @@ function App() {
     layer.on({
 
       click: () => {
+
         setComuna(
           nombreComuna
         )
 
+
         consultarRiesgo(
           nombreComuna
         )
+
       },
 
 
@@ -741,14 +811,17 @@ function App() {
         if (
           geoJsonRef.current
         ) {
+
           geoJsonRef.current.resetStyle(
             evento.target
           )
+
         }
 
       },
 
     })
+
   }
 
 
@@ -771,7 +844,9 @@ function App() {
       valor === null ||
       valor === undefined
     ) {
+
       return '-'
+
     }
 
 
@@ -780,6 +855,7 @@ function App() {
     ).toFixed(
       decimales
     )
+
   }
 
 
@@ -791,7 +867,9 @@ function App() {
       nudos === null ||
       nudos === undefined
     ) {
+
       return null
+
     }
 
 
@@ -799,6 +877,7 @@ function App() {
       Number(nudos) *
       1.852
     )
+
   }
 
 
@@ -810,9 +889,11 @@ function App() {
       direccion ===
       'aumenta'
     ) {
+
       return (
         'Contribuye a una evaluación de mayor riesgo'
       )
+
     }
 
 
@@ -820,15 +901,18 @@ function App() {
       direccion ===
       'reduce'
     ) {
+
       return (
         'Contribuye a una evaluación de menor riesgo'
       )
+
     }
 
 
     return (
       'Tiene una influencia neutra en esta evaluación'
     )
+
   }
 
 
@@ -840,7 +924,9 @@ function App() {
       direccion ===
       'aumenta'
     ) {
+
       return '↑'
+
     }
 
 
@@ -848,11 +934,14 @@ function App() {
       direccion ===
       'reduce'
     ) {
+
       return '↓'
+
     }
 
 
     return '•'
+
   }
 
 
@@ -1172,6 +1261,12 @@ function App() {
                       </div>
 
 
+                      <OrientacionIncendios
+                        contexto="reporte"
+                        compacto
+                      />
+
+
                     </div>
 
                   </Popup>
@@ -1289,6 +1384,7 @@ function App() {
               Consulta territorial
             </p>
 
+
             <h2>
               Evaluar riesgo
             </h2>
@@ -1314,9 +1410,11 @@ function App() {
                 evento.target.value
               )
 
+
               setResultado(
                 null
               )
+
 
               setError(
                 ''
@@ -1445,6 +1543,15 @@ function App() {
               </div>
 
 
+              <OrientacionIncendios
+                contexto="riesgo"
+
+                nivelRiesgo={
+                  resultado.nivel_riesgo
+                }
+              />
+
+
               <div className="datos-grid">
 
 
@@ -1453,6 +1560,7 @@ function App() {
                   <span>
                     Temperatura media
                   </span>
+
 
                   <strong>
 
@@ -1467,6 +1575,7 @@ function App() {
 
                   </strong>
 
+
                   <small>
                     Día anterior
                   </small>
@@ -1479,6 +1588,7 @@ function App() {
                   <span>
                     Humedad media
                   </span>
+
 
                   <strong>
 
@@ -1493,6 +1603,7 @@ function App() {
 
                   </strong>
 
+
                   <small>
                     Día anterior
                   </small>
@@ -1505,6 +1616,7 @@ function App() {
                   <span>
                     Viento medio
                   </span>
+
 
                   <strong>
 
@@ -1521,6 +1633,7 @@ function App() {
 
                   </strong>
 
+
                   <small>
                     Día anterior
                   </small>
@@ -1534,17 +1647,20 @@ function App() {
                     Cobertura vegetal
                   </span>
 
+
                   <strong>
                     {
                       resultado.vegetacion_cobertura
                     }
                   </strong>
 
+
                   <small>
                     Predominante
                   </small>
 
                 </article>
+
 
               </div>
 
@@ -1554,6 +1670,7 @@ function App() {
                 <span>
                   Promedio histórico anual
                 </span>
+
 
                 <strong>
 
@@ -1579,7 +1696,9 @@ function App() {
 
 
                     <div className="factores-titulo">
+
                       Factores que influyen en esta evaluación
+
                     </div>
 
 
@@ -1619,6 +1738,7 @@ function App() {
                                     factor.nombre
                                   }
                                 </strong>
+
 
                                 <span>
 
@@ -1693,16 +1813,20 @@ function App() {
 
               </div>
 
+
             </div>
 
           )}
+
 
         </aside>
 
       </main>
 
     </div>
+
   )
+
 }
 
 

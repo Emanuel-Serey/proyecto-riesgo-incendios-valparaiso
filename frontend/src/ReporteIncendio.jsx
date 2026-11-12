@@ -18,6 +18,8 @@ import {
   formatearPrecisionGps,
 } from './gpsUtils'
 
+import OrientacionIncendios from './OrientacionIncendios'
+
 import './GpsPrecision.css'
 import './Duplicados.css'
 import './UbicacionReporte.css'
@@ -730,6 +732,7 @@ function ReporteIncendio() {
 
     limpiarFormulario()
 
+
     obtenerUbicacion()
 
   }
@@ -771,8 +774,10 @@ function ReporteIncendio() {
         'La fotografía debe ser JPG, PNG o WebP.'
       )
 
+
       evento.target.value =
         ''
+
 
       return
 
@@ -793,8 +798,10 @@ function ReporteIncendio() {
         `La fotografía no puede superar ${MAX_IMAGEN_MB} MB.`
       )
 
+
       evento.target.value =
         ''
+
 
       return
 
@@ -851,6 +858,7 @@ function ReporteIncendio() {
           'Debes indicar la ubicación del posible incendio.'
         )
 
+
         return
 
       }
@@ -863,6 +871,7 @@ function ReporteIncendio() {
         setError(
           'Debes adjuntar una fotografía.'
         )
+
 
         return
 
@@ -1108,6 +1117,7 @@ function ReporteIncendio() {
                     Importante
                   </strong>
 
+
                   <span>
 
                     Esta herramienta permite
@@ -1119,6 +1129,13 @@ function ReporteIncendio() {
                   </span>
 
                 </div>
+
+
+                <OrientacionIncendios
+                  contexto="reporte"
+
+                  compacto
+                />
 
 
                 {/* =================================================
@@ -1228,6 +1245,7 @@ function ReporteIncendio() {
                                     Ubicación obtenida
                                   </strong>
 
+
                                   <span>
 
                                     Precisión aproximada:{' '}
@@ -1321,6 +1339,7 @@ function ReporteIncendio() {
                           Selecciona el sector donde
                           observas fuego o humo.
 
+
                           <span className="ubicacion-manual-ayuda">
 
                             El mapa está limitado a la
@@ -1349,7 +1368,6 @@ function ReporteIncendio() {
                           regionGeoJson && (
 
                             <MapaUbicacionManual
-
                               geojson={
                                 regionGeoJson
                               }
@@ -1361,7 +1379,6 @@ function ReporteIncendio() {
                               onSeleccionar={
                                 seleccionarPuntoManual
                               }
-
                             />
 
                           )
@@ -1495,9 +1512,11 @@ function ReporteIncendio() {
                           📷
                         </span>
 
+
                         <strong>
                           Tomar o seleccionar fotografía
                         </strong>
+
 
                         <small>
                           JPG, PNG o WebP · máximo 10 MB
@@ -1595,6 +1614,7 @@ function ReporteIncendio() {
                       <strong>
                         Analizando fotografía...
                       </strong>
+
 
                       <span>
 
@@ -1703,6 +1723,7 @@ function ReporteIncendio() {
                         ⚠ Posible fotografía duplicada
                       </strong>
 
+
                       La fotografía es muy similar
                       a otra imagen registrada
                       anteriormente. El reporte se
@@ -1724,6 +1745,7 @@ function ReporteIncendio() {
                       Estado
                     </span>
 
+
                     <strong>
 
                       {
@@ -1742,6 +1764,7 @@ function ReporteIncendio() {
                     <span>
                       Detección IA
                     </span>
+
 
                     <strong>
 
@@ -1764,6 +1787,7 @@ function ReporteIncendio() {
                         <span>
                           Confianza
                         </span>
+
 
                         <strong>
 
@@ -1793,6 +1817,7 @@ function ReporteIncendio() {
                       Ubicación
                     </span>
 
+
                     <strong>
 
                       {
@@ -1816,6 +1841,11 @@ function ReporteIncendio() {
                 </div>
 
 
+                <OrientacionIncendios
+                  contexto="reporte"
+                />
+
+
                 <button
                   type="button"
 
@@ -1825,7 +1855,9 @@ function ReporteIncendio() {
                     crearOtroReporte
                   }
                 >
+
                   Crear otro reporte
+
                 </button>
 
 
@@ -1838,7 +1870,9 @@ function ReporteIncendio() {
                     cerrarFormulario
                   }
                 >
+
                   Cerrar
+
                 </button>
 
 
@@ -1855,6 +1889,7 @@ function ReporteIncendio() {
 
     </>
   )
+
 }
 
 

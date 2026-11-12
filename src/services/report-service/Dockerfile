@@ -10,6 +10,10 @@ RUN pip install --no-cache-dir -r requirements.txt \
 
 COPY --chown=10001:10001 src/services/report-service/main.py ./main.py
 
+COPY --chown=10001:10001 \
+    frontend/public/data/region_valparaiso.geojson \
+    ./region_valparaiso.geojson
+
 RUN mkdir -p /app/data/reportes \
     && chown -R 10001:10001 /app/data
 

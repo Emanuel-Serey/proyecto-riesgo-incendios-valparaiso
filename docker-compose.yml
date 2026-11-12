@@ -12,6 +12,7 @@ services:
       - "8004"
     restart: unless-stopped
 
+
   data-service:
     build:
       context: .
@@ -37,7 +38,8 @@ services:
     expose:
       - "8002"
     restart: unless-stopped
-  
+
+
   ai-service:
     build:
       context: .
@@ -45,11 +47,12 @@ services:
     env_file:
       - .env
     environment:
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
     expose:
       - "8003"
     restart: unless-stopped
+
 
   api-gateway:
     build:
@@ -61,12 +64,14 @@ services:
       DATA_SERVICE_URL: http://data-service:8001
       RISK_SERVICE_URL: http://risk-service:8002
       REPORT_SERVICE_URL: http://report-service:8004
+      AI_SERVICE_URL: http://ai-service:8003
     depends_on:
       - data-service
       - risk-service
       - ai-service
       - report-service
     restart: unless-stopped
+
 
   frontend:
     build:

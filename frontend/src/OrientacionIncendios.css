@@ -1,0 +1,692 @@
+/* =========================================================
+   ORIENTACIÓN PREVENTIVA Y EMERGENCIAS
+   ========================================================= */
+
+.orientacion-incendios {
+  width: 100%;
+  box-sizing: border-box;
+
+  margin-top: 14px;
+
+  overflow: hidden;
+
+  border:
+    1px solid #fed7aa;
+
+  border-radius: 10px;
+
+  background: #fff7ed;
+
+  text-align: left;
+}
+
+
+.orientacion-reporte {
+  border-color: #fecaca;
+
+  background: #fff7f7;
+}
+
+
+/* =========================================================
+   CABECERA
+   ========================================================= */
+
+.orientacion-cabecera {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 11px;
+
+  padding: 14px;
+}
+
+
+.orientacion-icono {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 9px;
+
+  background: white;
+
+  font-size: 19px;
+
+  box-shadow:
+    0 1px 3px
+    rgba(15, 23, 42, 0.08);
+}
+
+
+.orientacion-etiqueta {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #9a3412;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  letter-spacing: 0.5px;
+
+  text-transform: uppercase;
+}
+
+
+.orientacion-reporte
+.orientacion-etiqueta {
+  color: #b91c1c;
+}
+
+
+.orientacion-cabecera h3 {
+  margin: 0;
+
+  color: #0f172a;
+
+  font-size: 15px;
+
+  line-height: 1.3;
+}
+
+
+.orientacion-cabecera p {
+  margin:
+    5px 0 0;
+
+  color: #64748b;
+
+  font-size: 12px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================================================
+   RECOMENDACIONES
+   ========================================================= */
+
+.orientacion-recomendaciones {
+  margin:
+    0 14px 14px;
+
+  padding:
+    12px 12px 12px 31px;
+
+  border:
+    1px solid
+    rgba(203, 213, 225, 0.75);
+
+  border-radius: 8px;
+
+  background:
+    rgba(255, 255, 255, 0.86);
+
+  color: #334155;
+
+  font-size: 12px;
+
+  line-height: 1.55;
+}
+
+
+.orientacion-recomendaciones li {
+  padding-left: 2px;
+
+  margin-bottom: 8px;
+}
+
+
+.orientacion-recomendaciones li:last-child {
+  margin-bottom: 0;
+}
+
+
+/* =========================================================
+   CANALES OFICIALES
+   ========================================================= */
+
+.orientacion-canales {
+  padding:
+    0 14px 14px;
+}
+
+
+.orientacion-canales-titulo {
+  margin-bottom: 8px;
+
+  color: #475569;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.4px;
+}
+
+
+.orientacion-canales-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      2,
+      minmax(
+        0,
+        1fr
+      )
+    );
+
+  gap: 7px;
+}
+
+
+.orientacion-canal {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 9px;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 8px;
+
+  background: white;
+
+  color: inherit;
+}
+
+
+.orientacion-canal-estatico {
+  cursor: default;
+}
+
+
+.orientacion-canal-icono {
+  width: 29px;
+  height: 29px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #f8fafc;
+
+  font-size: 16px;
+}
+
+
+.orientacion-canal-contenido {
+  min-width: 0;
+
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+.orientacion-canal-organismo {
+  color: #64748b;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+}
+
+
+.orientacion-canal strong {
+  margin-top: 1px;
+
+  color: #0f172a;
+
+  font-size: 18px;
+
+  line-height: 1;
+}
+
+
+.orientacion-canal small {
+  margin-top: 3px;
+
+  overflow: hidden;
+
+  color: #64748b;
+
+  font-size: 9px;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   SENAPRED
+   ========================================================= */
+
+.orientacion-senapred {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin-top: 7px;
+
+  padding: 9px 10px;
+
+  border:
+    1px solid #bfdbfe;
+
+  border-radius: 8px;
+
+  background: #eff6ff;
+
+  color: #1e3a8a;
+
+  text-decoration: none;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+
+.orientacion-senapred:hover {
+  border-color: #93c5fd;
+
+  background: #dbeafe;
+}
+
+
+.orientacion-senapred > span:nth-child(2) {
+  min-width: 0;
+
+  display: flex;
+
+  flex: 1;
+
+  flex-direction: column;
+}
+
+
+.orientacion-senapred strong {
+  font-size: 11px;
+}
+
+
+.orientacion-senapred small {
+  margin-top: 1px;
+
+  color: #3b82f6;
+
+  font-size: 10px;
+}
+
+
+.orientacion-enlace-icono {
+  color: #2563eb;
+
+  font-size: 16px;
+}
+
+
+/* =========================================================
+   NOTA
+   ========================================================= */
+
+.orientacion-nota {
+  padding:
+    10px 14px;
+
+  border-top:
+    1px solid
+    rgba(203, 213, 225, 0.75);
+
+  background:
+    rgba(255, 255, 255, 0.5);
+
+  color: #64748b;
+
+  font-size: 10px;
+
+  line-height: 1.45;
+}
+
+
+/* =========================================================
+   VERSIÓN COMPACTA DEL POPUP
+   ========================================================= */
+
+.orientacion-compacta-simple {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  margin-top: 10px;
+
+  padding: 11px;
+
+  border:
+    1px solid #fecaca;
+
+  border-radius: 9px;
+
+  background: #fff7f7;
+
+  text-align: left;
+}
+
+
+/* =========================
+   CABECERA COMPACTA
+   ========================= */
+
+.orientacion-compacta-titulo {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+}
+
+
+.orientacion-compacta-titulo > span:first-child {
+  width: 29px;
+  height: 29px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 7px;
+
+  background: white;
+
+  font-size: 15px;
+
+  box-shadow:
+    0 1px 3px
+    rgba(15, 23, 42, 0.06);
+}
+
+
+.orientacion-compacta-titulo > div {
+  min-width: 0;
+
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+.orientacion-compacta-titulo strong {
+  color: #b91c1c;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  line-height: 1.3;
+}
+
+
+.orientacion-compacta-titulo small {
+  margin-top: 3px;
+
+  color: #64748b;
+
+  font-size: 9px;
+
+  line-height: 1.4;
+}
+
+
+/* =========================
+   MENSAJE COMPACTO
+   ========================= */
+
+.orientacion-mensaje-rapido {
+  margin-top: 10px;
+
+  padding: 10px;
+
+  border-radius: 7px;
+
+  background:
+    rgba(255, 255, 255, 0.86);
+
+  color: #475569;
+
+  font-size: 11px;
+
+  line-height: 1.5;
+}
+
+
+/* =========================
+   TELÉFONOS COMPACTOS
+   ========================= */
+
+.orientacion-compacta-telefonos {
+  display: grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap: 7px;
+
+  margin-top: 10px;
+}
+
+
+.orientacion-compacta-telefonos > div {
+  min-width: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 8px 9px;
+
+  border:
+    1px solid #e2e8f0;
+
+  border-radius: 7px;
+
+  background: white;
+}
+
+
+.orientacion-compacta-telefonos > div > span:first-child {
+  font-size: 15px;
+}
+
+
+.orientacion-compacta-telefonos > div > span:last-child {
+  min-width: 0;
+
+  display: flex;
+
+  flex-direction: column;
+}
+
+
+.orientacion-compacta-telefonos small {
+  color: #64748b;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  line-height: 1.2;
+}
+
+
+.orientacion-compacta-telefonos strong {
+  margin-top: 2px;
+
+  color: #0f172a;
+
+  font-size: 16px;
+
+  line-height: 1;
+}
+
+
+/* =========================
+   SENAPRED COMPACTO
+   ========================= */
+
+.orientacion-compacta-senapred {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+
+  margin-top: 7px;
+
+  padding: 9px 10px;
+
+  border:
+    1px solid #bfdbfe;
+
+  border-radius: 7px;
+
+  background: #eff6ff;
+
+  color: #1d4ed8;
+
+  font-size: 10px;
+
+  font-weight: 600;
+
+  text-decoration: none;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.orientacion-compacta-senapred
+span:first-child {
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.orientacion-compacta-senapred
+span:last-child {
+  font-size: 10px;
+}
+
+
+/* =========================================================
+   POPUP PÚBLICO DEL MAPA
+   ========================================================= */
+
+.reporte-popup-publico {
+  max-height:
+    min(
+      420px,
+      calc(100vh - 260px)
+    );
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  padding-right: 4px;
+
+  overscroll-behavior: contain;
+
+  scrollbar-width: thin;
+}
+
+
+.reporte-popup-publico::-webkit-scrollbar {
+  width: 6px;
+}
+
+
+.reporte-popup-publico::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+.reporte-popup-publico::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+
+  background: #cbd5e1;
+}
+
+
+.reporte-popup-publico::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (
+  max-width: 420px
+) {
+
+  .orientacion-canales-grid {
+    grid-template-columns:
+      1fr;
+  }
+
+
+  .orientacion-cabecera {
+    padding: 12px;
+  }
+
+
+  .orientacion-recomendaciones {
+    margin:
+      0 12px 12px;
+  }
+
+
+  .orientacion-canales {
+    padding:
+      0 12px 12px;
+  }
+
+
+  .reporte-popup-publico {
+    max-height:
+      calc(100vh - 220px);
+  }
+
+}

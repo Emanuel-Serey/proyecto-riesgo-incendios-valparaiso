@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import uuid
 
@@ -22,6 +23,13 @@ from fastapi.staticfiles import StaticFiles
 from huggingface_hub import hf_hub_download
 
 from PIL import Image
+
+from shapely.geometry import (
+    Point,
+    shape,
+)
+
+from shapely.ops import unary_union
 
 from sqlalchemy import (
     create_engine,
@@ -89,6 +97,216 @@ def obtener_project_root():
 PROJECT_ROOT = (
     obtener_project_root()
 )
+
+
+# =========================================================
+# REGIÓN DE VALPARAÍSO
+# =========================================================
+
+def obtener_ruta_region():
+
+    candidatos = [
+
+        (
+            PROJECT_ROOT
+            / "frontend"
+            / "public"
+            / "data"
+            / "region_valparaiso.geojson"
+        ),
+
+        (
+            Path(
+                __file__
+            ).resolve().parent
+            / "region_valparaiso.geojson"
+        ),
+
+    ]
+
+
+    for ruta in candidatos:
+
+        if ruta.exists():
+
+            return ruta
+
+
+    raise RuntimeError(
+        "No se encontró "
+        "region_valparaiso.geojson"
+    )
+
+
+REGION_GEOJSON_PATH = (
+    obtener_ruta_region()
+)
+
+
+def cargar_geometria_region():
+
+    try:
+
+        with REGION_GEOJSON_PATH.open(
+            "r",
+            encoding="utf-8",
+        ) as archivo:
+
+            geojson = json.load(
+                archivo
+            )
+
+
+        tipo = geojson.get(
+            "type"
+        )
+
+
+        if (
+            tipo ==
+            "FeatureCollection"
+        ):
+
+            geometrias = [
+
+                shape(
+                    feature[
+                        "geometry"
+                    ]
+                )
+
+                for feature
+                in geojson.get(
+                    "features",
+                    []
+                )
+
+                if feature.get(
+                    "geometry"
+                )
+
+            ]
+
+
+        elif (
+            tipo ==
+            "Feature"
+        ):
+
+            geometria = (
+                geojson.get(
+                    "geometry"
+                )
+            )
+
+
+            geometrias = (
+
+                [
+                    shape(
+                        geometria
+                    )
+                ]
+
+                if geometria
+
+                else []
+
+            )
+
+
+        else:
+
+            geometrias = [
+
+                shape(
+                    geojson
+                )
+
+            ]
+
+
+        if not geometrias:
+
+            raise ValueError(
+                "El GeoJSON de la región "
+                "no contiene geometrías"
+            )
+
+
+        geometria_region = (
+            unary_union(
+                geometrias
+            )
+        )
+
+
+        if (
+            geometria_region.is_empty
+        ):
+
+            raise ValueError(
+                "La geometría de la región "
+                "está vacía"
+            )
+
+
+        if (
+            not
+            geometria_region.is_valid
+        ):
+
+            geometria_region = (
+                geometria_region.buffer(
+                    0
+                )
+            )
+
+
+        return geometria_region
+
+
+    except Exception as error:
+
+        raise RuntimeError(
+            "No fue posible cargar "
+            "el límite geográfico "
+            "de la Región de Valparaíso"
+        ) from error
+
+
+GEOMETRIA_REGION_VALPARAISO = (
+    cargar_geometria_region()
+)
+
+
+def validar_ubicacion_region(
+    latitud: float,
+    longitud: float,
+):
+
+    punto = Point(
+        longitud,
+        latitud,
+    )
+
+
+    if (
+        not
+        GEOMETRIA_REGION_VALPARAISO.covers(
+            punto
+        )
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "La ubicación del reporte "
+                "debe estar dentro del área "
+                "continental de la Región "
+                "de Valparaíso"
+            ),
+        )
 
 
 # =========================================================
@@ -627,7 +845,7 @@ app = FastAPI(
         "Reportes Ciudadanos"
     ),
 
-    version="1.7",
+    version="1.8",
 
     lifespan=
         lifespan,
@@ -1609,6 +1827,12 @@ async def crear_reporte(
                 "Longitud inválida"
             ),
         )
+
+
+    validar_ubicacion_region(
+        latitud,
+        longitud,
+    )
 
 
     if (
