@@ -584,6 +584,7 @@ def buscar_imagen_duplicada(
                 FROM public.reportes_ciudadanos
 
                 WHERE imagen_phash IS NOT NULL
+                  AND yolo_detectado = TRUE
 
                 ORDER BY
                     id_reporte DESC
@@ -706,6 +707,7 @@ def completar_hashes_existentes():
 
                     WHERE imagen_phash IS NULL
                       AND imagen_url IS NOT NULL
+                      AND yolo_detectado = TRUE
                     """
                 )
             ).mappings().all()
@@ -1907,20 +1909,6 @@ async def crear_reporte(
     )
 
 
-    imagen_phash = (
-        calcular_phash_bytes(
-            contenido
-        )
-    )
-
-
-    duplicado = (
-        buscar_imagen_duplicada(
-            imagen_phash
-        )
-    )
-
-
     ruta_imagen = None
 
 
@@ -1941,11 +1929,56 @@ async def crear_reporte(
         )
 
 
+        # -------------------------------------------------
+        # PRIMERO ANALIZAR LA IMAGEN CON YOLO
+        # -------------------------------------------------
+
         resultado_yolo = (
             analizar_imagen_yolo(
                 ruta_imagen
             )
         )
+
+
+        # -------------------------------------------------
+        # DUPLICADOS SOLO SI YOLO DETECTÓ FUEGO/HUMO
+        # -------------------------------------------------
+
+        imagen_phash = None
+
+
+        duplicado = {
+
+            "posible_duplicado":
+                False,
+
+            "reporte_duplicado_id":
+                None,
+
+            "distancia_phash":
+                None,
+
+        }
+
+
+        if (
+            resultado_yolo[
+                "detectado"
+            ]
+        ):
+
+            imagen_phash = (
+                calcular_phash_bytes(
+                    contenido
+                )
+            )
+
+
+            duplicado = (
+                buscar_imagen_duplicada(
+                    imagen_phash
+                )
+            )
 
 
         estado = (

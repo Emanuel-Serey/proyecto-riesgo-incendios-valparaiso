@@ -261,6 +261,60 @@ function antiguedadReportePublico(
     : `Hace ${dias} días`
 }
 
+function obtenerFechaLocalISO() {
+
+  const ahora =
+    new Date()
+
+
+  const fechaLocal =
+    new Date(
+      ahora.getTime()
+      -
+      ahora.getTimezoneOffset()
+      *
+      60000
+    )
+
+
+  return fechaLocal
+    .toISOString()
+    .slice(
+      0,
+      10
+    )
+
+}
+
+
+function formatearFechaEvaluacion(
+  fecha
+) {
+
+  if (!fecha) {
+    return '-'
+  }
+
+
+  const partes =
+    fecha.split('-')
+
+
+  if (
+    partes.length !==
+    3
+  ) {
+
+    return fecha
+
+  }
+
+
+  return (
+    `${partes[2]}/${partes[1]}/${partes[0]}`
+  )
+
+}
 
 function App() {
   const [
@@ -283,6 +337,24 @@ function App() {
     resultado,
     setResultado
   ] = useState(null)
+
+
+  const [
+    explicacion,
+    setExplicacion
+  ] = useState(null)
+
+
+  const [
+    cargandoExplicacion,
+    setCargandoExplicacion
+  ] = useState(false)
+
+
+  const [
+    errorExplicacion,
+    setErrorExplicacion
+  ] = useState('')
 
 
   const [
@@ -601,6 +673,10 @@ function App() {
 
       setError('')
 
+      setExplicacion(null)
+
+      setErrorExplicacion('')
+
 
       try {
 
@@ -674,6 +750,89 @@ function App() {
       } finally {
 
         setCargando(false)
+
+      }
+
+    }
+
+
+  // =========================================================
+  // EXPLICACIÓN CON GEMINI
+  // =========================================================
+
+  const consultarExplicacion =
+    async () => {
+
+      if (!resultado) {
+        return
+      }
+
+
+      setCargandoExplicacion(true)
+
+      setErrorExplicacion('')
+
+
+      try {
+
+        const respuesta =
+          await fetch(
+            `/api/riesgo/${
+              encodeURIComponent(
+                resultado.comuna
+              )
+            }/explicado`,
+            {
+              cache:
+                'no-store',
+            }
+          )
+
+
+        if (!respuesta.ok) {
+
+          throw new Error(
+            'No fue posible generar la explicación'
+          )
+
+        }
+
+
+        const datos =
+          await respuesta.json()
+
+
+        if (
+          !datos.explicacion_disponible
+          ||
+          !datos.explicacion
+        ) {
+
+          throw new Error(
+            'La explicación no está disponible en este momento'
+          )
+
+        }
+
+
+        setExplicacion(
+          datos.explicacion
+        )
+
+      } catch (err) {
+
+        setExplicacion(null)
+
+
+        setErrorExplicacion(
+          err.message
+        )
+
+      } finally {
+
+        setCargandoExplicacion(
+          false
+        )
 
       }
 
@@ -916,9 +1075,7 @@ function App() {
   }
 
 
-  const obtenerSimboloDireccion = (
-    direccion
-  ) => {
+  const obtenerSimboloDireccion = (direccion) => {
 
     if (
       direccion ===
@@ -943,6 +1100,26 @@ function App() {
     return '•'
 
   }
+
+
+  // =========================================================
+  // ESTADO DE ACTUALIZACIÓN METEOROLÓGICA
+  // =========================================================
+
+  const fechaHoy =
+    obtenerFechaLocalISO()
+
+
+  const evaluacionDesactualizada = (
+
+    resultado
+    &&
+    resultado.fecha_prediccion
+    &&
+    resultado.fecha_prediccion <
+      fechaHoy
+
+  )
 
 
   // =========================================================
@@ -1416,6 +1593,16 @@ function App() {
               )
 
 
+              setExplicacion(
+                null
+              )
+
+
+              setErrorExplicacion(
+                ''
+              )
+
+
               setError(
                 ''
               )
@@ -1497,6 +1684,59 @@ function App() {
             <div className="resultado">
 
 
+              {
+                evaluacionDesactualizada && (
+
+                  <div className="aviso-actualizacion-riesgo">
+
+                    <div className="aviso-actualizacion-riesgo-icono">
+                      ⏳
+                    </div>
+
+
+                    <div>
+
+                      <strong>
+                        Actualización meteorológica pendiente
+                      </strong>
+
+
+                      <p>
+
+                        Se muestra la última evaluación
+                        disponible, correspondiente al{' '}
+
+                        <b>
+                          {
+                            formatearFechaEvaluacion(
+                              resultado.fecha_prediccion
+                            )
+                          }
+                        </b>
+
+                        . Los datos necesarios para la
+                        evaluación del{' '}
+
+                        <b>
+                          {
+                            formatearFechaEvaluacion(
+                              fechaHoy
+                            )
+                          }
+                        </b>
+
+                        {' '}aún están siendo actualizados.
+
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                )
+              }
+
+
               <div className={claseRiesgo}>
 
                 <span>
@@ -1541,15 +1781,6 @@ function App() {
                 </div>
 
               </div>
-
-
-              <OrientacionIncendios
-                contexto="riesgo"
-
-                nivelRiesgo={
-                  resultado.nivel_riesgo
-                }
-              />
 
 
               <div className="datos-grid">
@@ -1775,6 +2006,87 @@ function App() {
               }
 
 
+              <div className="explicacion-ia">
+
+                <strong className="explicacion-ia-titulo">
+                  Explicación del nivel de riesgo
+                </strong>
+
+
+                <p className="explicacion-ia-descripcion">
+
+                  Conoce qué factores influyeron
+                  en este nivel de riesgo.
+
+                </p>
+
+
+                {
+                  !explicacion && (
+
+                    <button
+                      type="button"
+
+                      className="boton-explicacion-ia"
+
+                      onClick={
+                        consultarExplicacion
+                      }
+
+                      disabled={
+                        cargandoExplicacion
+                      }
+                    >
+
+                      {
+                        cargandoExplicacion
+                          ? 'Generando explicación...'
+                          : `✨ ¿Por qué el riesgo es ${resultado.nivel_riesgo.toLowerCase()}?`
+                      }
+
+                    </button>
+
+                  )
+                }
+
+
+                {
+                  explicacion && (
+
+                    <div className="explicacion-ia-texto">
+
+                      {explicacion}
+
+                    </div>
+
+                  )
+                }
+
+
+                {
+                  errorExplicacion && (
+
+                    <div className="explicacion-ia-error">
+
+                      {errorExplicacion}
+
+                    </div>
+
+                  )
+                }
+
+
+                <div className="explicacion-ia-nota">
+
+                  Esta explicación complementa la evaluación
+                  y no modifica el nivel de riesgo calculado
+                  por el sistema.
+
+                </div>
+
+              </div>
+
+
               <div className="fechas">
 
                 <span>
@@ -1812,6 +2124,15 @@ function App() {
                 calendario anterior.
 
               </div>
+
+
+              <OrientacionIncendios
+                contexto="riesgo"
+
+                nivelRiesgo={
+                  resultado.nivel_riesgo
+                }
+              />
 
 
             </div>

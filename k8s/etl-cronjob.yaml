@@ -1,0 +1,185 @@
+apiVersion: batch/v1
+kind: CronJob
+
+metadata:
+  name: etl-diario
+
+
+spec:
+
+  # =======================================================
+  # INTENTOS DURANTE LA MADRUGADA
+  #
+  # 00:30
+  # 01:30
+  # 02:30
+  # ...
+  # 08:30
+  #
+  # Hora de Chile.
+  # =======================================================
+
+  schedule: "0,30 0-12 * * *"
+
+  timeZone: "America/Santiago"
+
+
+  # No permitir dos ETL ejecutándose al mismo tiempo.
+  concurrencyPolicy: Forbid
+
+
+  # Mantener algunos Jobs anteriores para revisión.
+  successfulJobsHistoryLimit: 3
+
+  failedJobsHistoryLimit: 3
+
+
+  jobTemplate:
+
+    spec:
+
+      # Los reintentos los controla el CronJob
+      # una vez por hora.
+      #
+      # No queremos que Kubernetes haga
+      # varios intentos seguidos cuando DMC
+      # todavía no posee los datos.
+
+      backoffLimit: 0
+
+
+      template:
+
+        metadata:
+
+          labels:
+            app: etl-diario
+
+
+        spec:
+
+          restartPolicy: Never
+
+
+          securityContext:
+
+            seccompProfile:
+              type: RuntimeDefault
+
+
+          containers:
+
+            - name: etl
+
+              image: proyecto-incendios-etl:latest
+
+              imagePullPolicy: Never
+
+
+              command:
+
+                - python
+
+                - src/etl/pipeline_etl.py
+
+
+              env:
+
+                # =========================================
+                # POSTGRESQL
+                # =========================================
+
+                - name: DB_HOST
+                  value: host.docker.internal
+
+
+                - name: DB_PORT
+
+                  valueFrom:
+
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_PORT
+
+
+                - name: DB_NAME
+
+                  valueFrom:
+
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_NAME
+
+
+                - name: DB_USER
+
+                  valueFrom:
+
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_USER
+
+
+                - name: DB_PASSWORD
+
+                  valueFrom:
+
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DB_PASSWORD
+
+
+                # =========================================
+                # DIRECCIÓN METEOROLÓGICA DE CHILE
+                # =========================================
+
+                - name: DMC_USUARIO
+
+                  valueFrom:
+
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DMC_USUARIO
+
+
+                - name: DMC_TOKEN
+
+                  valueFrom:
+
+                    secretKeyRef:
+                      name: incendios-secrets
+                      key: DMC_TOKEN
+
+
+              securityContext:
+
+                runAsNonRoot: true
+
+                runAsUser: 10001
+
+                runAsGroup: 10001
+
+                allowPrivilegeEscalation: false
+
+
+                capabilities:
+
+                  drop:
+
+                    - ALL
+
+
+              resources:
+
+                requests:
+
+                  cpu: 250m
+
+                  memory: 256Mi
+
+
+                limits:
+
+                  cpu: "1"
+
+                  memory: 1Gi

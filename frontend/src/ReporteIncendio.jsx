@@ -202,6 +202,7 @@ function MapaUbicacionManual({
 // =========================================================
 
 function ReporteIncendio() {
+
   const [
     abierto,
     setAbierto
@@ -1131,11 +1132,83 @@ function ReporteIncendio() {
                 </div>
 
 
-                <OrientacionIncendios
-                  contexto="reporte"
+                {/* =================================================
+                    FOTOGRAFÍA
+                    ================================================= */}
 
-                  compacto
-                />
+                <div className="reporte-campo">
+
+
+                  <label>
+                    Fotografía
+                  </label>
+
+
+                  <input
+                    ref={
+                      inputImagenRef
+                    }
+
+                    className="input-imagen-oculto"
+
+                    id="imagen-reporte"
+
+                    type="file"
+
+                    accept={
+                      'image/jpeg,image/png,image/webp'
+                    }
+
+                    capture="environment"
+
+                    onChange={
+                      seleccionarImagen
+                    }
+                  />
+
+
+                  <label
+                    htmlFor="imagen-reporte"
+
+                    className="selector-imagen"
+                  >
+
+                    {vistaPrevia ? (
+
+                      <img
+                        src={
+                          vistaPrevia
+                        }
+
+                        alt="Fotografía seleccionada"
+                      />
+
+                    ) : (
+
+                      <div className="selector-imagen-vacio">
+
+                        <span>
+                          📷
+                        </span>
+
+
+                        <strong>
+                          Tomar o seleccionar fotografía
+                        </strong>
+
+
+                        <small>
+                          JPG, PNG o WebP · máximo 10 MB
+                        </small>
+
+                      </div>
+
+                    )}
+
+                  </label>
+
+
+                </div>
 
 
                 {/* =================================================
@@ -1454,85 +1527,6 @@ function ReporteIncendio() {
 
 
                 {/* =================================================
-                    FOTOGRAFÍA
-                    ================================================= */}
-
-                <div className="reporte-campo">
-
-
-                  <label>
-                    Fotografía
-                  </label>
-
-
-                  <input
-                    ref={
-                      inputImagenRef
-                    }
-
-                    className="input-imagen-oculto"
-
-                    id="imagen-reporte"
-
-                    type="file"
-
-                    accept={
-                      'image/jpeg,image/png,image/webp'
-                    }
-
-                    capture="environment"
-
-                    onChange={
-                      seleccionarImagen
-                    }
-                  />
-
-
-                  <label
-                    htmlFor="imagen-reporte"
-
-                    className="selector-imagen"
-                  >
-
-                    {vistaPrevia ? (
-
-                      <img
-                        src={
-                          vistaPrevia
-                        }
-
-                        alt="Fotografía seleccionada"
-                      />
-
-                    ) : (
-
-                      <div className="selector-imagen-vacio">
-
-                        <span>
-                          📷
-                        </span>
-
-
-                        <strong>
-                          Tomar o seleccionar fotografía
-                        </strong>
-
-
-                        <small>
-                          JPG, PNG o WebP · máximo 10 MB
-                        </small>
-
-                      </div>
-
-                    )}
-
-                  </label>
-
-
-                </div>
-
-
-                {/* =================================================
                     DESCRIPCIÓN
                     ================================================= */}
 
@@ -1618,8 +1612,8 @@ function ReporteIncendio() {
 
                       <span>
 
-                        La IA está buscando indicios
-                        de fuego o humo.
+                        Estamos revisando la fotografía
+                        antes de enviar el reporte.
 
                       </span>
 
@@ -1651,6 +1645,25 @@ function ReporteIncendio() {
                   }
 
                 </button>
+
+
+                <div className="reporte-aviso">
+
+                  <strong>
+                    Seguridad
+                  </strong>
+
+
+                  <span>
+
+                    Si observas una situación de
+                    peligro inmediato, prioriza tu
+                    seguridad y utiliza los canales
+                    oficiales.
+
+                  </span>
+
+                </div>
 
 
               </form>
@@ -1702,38 +1715,14 @@ function ReporteIncendio() {
                   {
                     resultado.yolo_detectado
                       ? (
-                          'La imagen contiene indicios compatibles con fuego o humo. ' +
-                          'El reporte quedó pendiente de validación.'
+                          'El reporte fue recibido correctamente y quedó pendiente de revisión.'
                         )
                       : (
-                          'La IA no detectó fuego ni humo en la fotografía. ' +
-                          'El reporte no fue enviado a validación.'
+                          'No se identificaron indicios suficientes de fuego o humo en la fotografía, por lo que el reporte no fue enviado a revisión.'
                         )
                   }
 
                 </p>
-
-
-                {
-                  resultado.posible_duplicado && (
-
-                    <div className="reporte-duplicado-aviso">
-
-                      <strong>
-                        ⚠ Posible fotografía duplicada
-                      </strong>
-
-
-                      La fotografía es muy similar
-                      a otra imagen registrada
-                      anteriormente. El reporte se
-                      enviará igualmente para
-                      revisión del administrador.
-
-                    </div>
-
-                  )
-                }
 
 
                 <div className="resultado-reporte-info">
@@ -1750,65 +1739,13 @@ function ReporteIncendio() {
 
                       {
                         resultado.yolo_detectado
-                          ? 'Pendiente de validación'
-                          : 'Rechazado'
+                          ? 'Pendiente de revisión'
+                          : 'No enviado a revisión'
                       }
 
                     </strong>
 
                   </div>
-
-
-                  <div>
-
-                    <span>
-                      Detección IA
-                    </span>
-
-
-                    <strong>
-
-                      {
-                        resultado.yolo_clase ||
-                        'Sin detección'
-                      }
-
-                    </strong>
-
-                  </div>
-
-
-                  {
-                    resultado.yolo_confianza !== null &&
-                    resultado.yolo_confianza !== undefined && (
-
-                      <div>
-
-                        <span>
-                          Confianza
-                        </span>
-
-
-                        <strong>
-
-                          {
-                            (
-                              Number(
-                                resultado.yolo_confianza
-                              )
-                              *
-                              100
-                            ).toFixed(1)
-                          }
-
-                          %
-
-                        </strong>
-
-                      </div>
-
-                    )
-                  }
 
 
                   <div>
@@ -1841,9 +1778,15 @@ function ReporteIncendio() {
                 </div>
 
 
-                <OrientacionIncendios
-                  contexto="reporte"
-                />
+                {
+                  resultado.yolo_detectado && (
+
+                    <OrientacionIncendios
+                      contexto="reporte"
+                    />
+
+                  )
+                }
 
 
                 <button

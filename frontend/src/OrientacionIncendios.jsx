@@ -32,37 +32,6 @@ const CANALES_PRINCIPALES = [
 ]
 
 
-const CANALES_ADICIONALES = [
-  {
-    nombre:
-      'Carabineros',
-
-    numero:
-      '133',
-
-    descripcion:
-      'Emergencias',
-
-    icono:
-      '🚓',
-  },
-
-  {
-    nombre:
-      'PDI',
-
-    numero:
-      '134',
-
-    descripcion:
-      'Emergencias',
-
-    icono:
-      '🛡️',
-  },
-]
-
-
 function CanalOficial({
   nombre,
   numero,
@@ -150,13 +119,10 @@ function OrientacionCompacta() {
 
       <div className="orientacion-mensaje-rapido">
 
-        Mantente alejado del avance del fuego y del humo.
-        No te acerques únicamente para obtener fotografías
-        o videos. Avisa lo antes posible a CONAF o Bomberos
-        e indica la ubicación del sector. Si recibes un
-        mensaje SAE o una instrucción de evacuación,
-        evacúa de inmediato y sigue las indicaciones
-        de las autoridades.
+        Mantén una distancia segura y evita acercarte
+        únicamente para obtener fotografías o videos.
+        Si la situación representa un peligro, informa
+        a CONAF o Bomberos e indica la ubicación del sector.
 
       </div>
 
@@ -295,32 +261,32 @@ function OrientacionIncendios({
 
       ? [
 
-          'Revisa con tu hogar las vías de evacuación y considera una ruta alternativa por si una salida queda bloqueada.',
+          'Evita quemas, fogatas y otras fuentes de fuego cerca de vegetación.',
 
-          'Mantén el teléfono cargado y permanece atento a información oficial y mensajes del Sistema de Alerta de Emergencia (SAE).',
+          'Evita trabajos que puedan generar chispas en sectores con vegetación seca, especialmente durante jornadas de mayor riesgo.',
 
-          'Ten preparado un kit básico con agua, documentos importantes, medicamentos, linterna y cargador portátil.',
+          'Mantén despejado el entorno de hojas, ramas secas y otros materiales que puedan facilitar la propagación del fuego.',
 
-          'Si vives cerca de vegetación, mantén despejados techos, canaletas y el entorno inmediato de hojas, ramas y otros materiales que puedan arder.',
+          'Mantente informado mediante los canales oficiales y presta atención a las condiciones del sector.',
 
         ]
 
       : [
 
-          'Aléjate del avance del fuego y del humo. No te acerques únicamente para obtener fotografías o videos.',
+          'Mantén una distancia segura del fuego y del humo. No te acerques únicamente para obtener fotografías o videos.',
 
-          'Avisa lo antes posible a CONAF o Bomberos e indica la ubicación y referencias que permitan llegar al sector.',
+          'Si la situación representa un peligro, informa a CONAF o Bomberos e indica la ubicación y referencias del sector.',
 
-          'Si recibes un mensaje SAE o una instrucción de evacuación, evacúa de inmediato y sigue las indicaciones de las autoridades.',
+          'Si recibes una instrucción oficial de evacuación o un mensaje SAE, sigue las indicaciones de las autoridades.',
 
-          'Mantente informado mediante SENAPRED y otros canales oficiales mientras la emergencia se encuentre activa.',
+          'Mantente informado mediante SENAPRED y los organismos oficiales mientras la situación se encuentre activa.',
 
         ]
 
 
   const titulo =
     esRiesgo
-      ? 'Prepárate ante condiciones de riesgo alto'
+      ? 'Refuerza las medidas de prevención'
       : 'Si observas humo o fuego'
 
 
@@ -328,13 +294,13 @@ function OrientacionIncendios({
     esRiesgo
 
       ? (
-          'El nivel de riesgo evaluado para esta comuna es alto. ' +
-          'Estas medidas pueden ayudarte a estar mejor preparado.'
+          'Las condiciones evaluadas para esta comuna corresponden a un nivel de riesgo alto. ' +
+          'Esto no significa que exista un incendio activo, pero es recomendable reforzar las medidas preventivas.'
         )
 
       : (
-          'Prioriza tu seguridad y utiliza los canales oficiales ' +
-          'si existe una emergencia activa.'
+          'Si efectivamente observas humo o fuego, prioriza tu seguridad ' +
+          'y utiliza los canales oficiales cuando corresponda.'
         )
 
 
@@ -372,7 +338,7 @@ function OrientacionIncendios({
             {
               esRiesgo
                 ? 'Recomendaciones preventivas'
-                : 'Información de emergencia'
+                : 'Orientación de seguridad'
             }
 
           </span>
@@ -434,23 +400,6 @@ function OrientacionIncendios({
 
           {
             CANALES_PRINCIPALES.map(
-              canal => (
-
-                <CanalOficial
-                  key={
-                    canal.numero
-                  }
-
-                  {...canal}
-                />
-
-              )
-            )
-          }
-
-
-          {
-            CANALES_ADICIONALES.map(
               canal => (
 
                 <CanalOficial
