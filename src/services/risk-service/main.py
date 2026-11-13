@@ -497,6 +497,139 @@ def health():
 
 
 # =========================================================
+# ESTADISTICAS DE USO
+# =========================================================
+
+@app.get("/estadisticas/uso")
+def obtener_estadisticas_uso():
+
+    consulta = text("""
+        WITH comuna_top AS (
+
+            SELECT
+                comuna,
+                COUNT(*) AS total
+
+            FROM public.consultas_riesgo
+
+            GROUP BY comuna
+
+            ORDER BY
+                total DESC,
+                comuna ASC
+
+            LIMIT 1
+        )
+
+        SELECT
+
+            (
+                SELECT COUNT(*)
+                FROM public.consultas_riesgo
+            ) AS consultas_total,
+
+            (
+                SELECT COUNT(*)
+                FROM public.consultas_riesgo
+
+                WHERE
+                    (
+                        fecha_consulta
+                        AT TIME ZONE 'America/Santiago'
+                    )::date
+                    =
+                    (
+                        CURRENT_TIMESTAMP
+                        AT TIME ZONE 'America/Santiago'
+                    )::date
+            ) AS consultas_hoy,
+
+            (
+                SELECT COUNT(*)
+                FROM public.registro_inferencias
+            ) AS inferencias_total,
+
+            (
+                SELECT comuna
+                FROM comuna_top
+            ) AS comuna_mas_consultada,
+
+            (
+                SELECT total
+                FROM comuna_top
+            ) AS comuna_mas_consultada_total;
+    """)
+
+    try:
+
+        with engine.connect() as conexion:
+
+            resultado = (
+                conexion.execute(
+                    consulta
+                )
+                .mappings()
+                .one()
+            )
+
+
+        return {
+
+            "consultas_total":
+                int(
+                    resultado[
+                        "consultas_total"
+                    ]
+                    or
+                    0
+                ),
+
+            "consultas_hoy":
+                int(
+                    resultado[
+                        "consultas_hoy"
+                    ]
+                    or
+                    0
+                ),
+
+            "inferencias_total":
+                int(
+                    resultado[
+                        "inferencias_total"
+                    ]
+                    or
+                    0
+                ),
+
+            "comuna_mas_consultada":
+                resultado[
+                    "comuna_mas_consultada"
+                ],
+
+            "comuna_mas_consultada_total":
+                int(
+                    resultado[
+                        "comuna_mas_consultada_total"
+                    ]
+                    or
+                    0
+                ),
+
+        }
+
+
+    except SQLAlchemyError:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Error al obtener "
+                "las estadísticas de uso"
+            )
+        )
+
+# =========================================================
 # PREDICCION
 # =========================================================
 

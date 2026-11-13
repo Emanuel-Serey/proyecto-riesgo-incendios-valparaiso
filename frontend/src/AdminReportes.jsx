@@ -368,6 +368,24 @@ function AdminReportes() {
 
 
   const [
+    estadisticasRiesgo,
+    setEstadisticasRiesgo
+  ] = useState(null)
+
+
+  const [
+    cargandoEstadisticasRiesgo,
+    setCargandoEstadisticasRiesgo
+  ] = useState(false)
+
+
+  const [
+    errorEstadisticasRiesgo,
+    setErrorEstadisticasRiesgo
+  ] = useState('')
+
+
+  const [
     cargando,
     setCargando
   ] = useState(false)
@@ -432,6 +450,21 @@ function AdminReportes() {
 
     setEstadoSistema(
       null
+    )
+
+
+    setEstadisticasRiesgo(
+      null
+    )
+
+
+    setErrorEstadisticasRiesgo(
+      ''
+    )
+
+
+    setCargandoEstadisticasRiesgo(
+      false
     )
 
   }
@@ -746,6 +779,104 @@ function AdminReportes() {
 
 
   // =========================================================
+  // ESTADISTICAS DE RIESGO
+  // =========================================================
+
+  const cargarEstadisticasRiesgo =
+    async (
+      tokenRecibido = null
+    ) => {
+
+      const token =
+        tokenRecibido ||
+        obtenerToken()
+
+
+      if (!token) {
+        eliminarSesion()
+        return
+      }
+
+
+      setCargandoEstadisticasRiesgo(
+        true
+      )
+
+
+      setErrorEstadisticasRiesgo(
+        ''
+      )
+
+
+      try {
+
+        const respuesta =
+          await fetch(
+            '/api/admin/riesgo/estadisticas',
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              cache:
+                'no-store',
+            }
+          )
+
+
+        if (
+          respuesta.status ===
+          401
+        ) {
+
+          eliminarSesion()
+
+          throw new Error(
+            'La sesión expiró.'
+          )
+        }
+
+
+        if (
+          !respuesta.ok
+        ) {
+
+          const datos =
+            await respuesta.json()
+
+
+          throw new Error(
+            datos.detail ||
+            'No fue posible cargar las estadísticas de riesgo.'
+          )
+        }
+
+
+        setEstadisticasRiesgo(
+          await respuesta.json()
+        )
+
+
+      } catch (err) {
+
+        setErrorEstadisticasRiesgo(
+          err.message ||
+          'No fue posible cargar las estadísticas de riesgo.'
+        )
+
+      } finally {
+
+        setCargandoEstadisticasRiesgo(
+          false
+        )
+
+      }
+
+    }
+
+
+  // =========================================================
   // CARGAR REPORTES
   // =========================================================
 
@@ -947,7 +1078,6 @@ function AdminReportes() {
                 formulario.toString(),
             }
           )
-
 
         const datos =
           await respuesta.json()
@@ -1207,6 +1337,42 @@ function AdminReportes() {
       }
 
 
+      if (
+        vista ===
+        'analisis'
+      ) {
+
+        setCargando(
+          true
+        )
+
+
+        try {
+
+          await Promise.all([
+
+            cargarTodosReportes(
+              obtenerToken()
+            ),
+
+            cargarEstadisticasRiesgo(),
+
+          ])
+
+        } finally {
+
+          setCargando(
+            false
+          )
+
+        }
+
+
+        return
+
+      }
+
+
       setCargando(
         true
       )
@@ -1237,6 +1403,18 @@ function AdminReportes() {
 
 
     cargarEstadoSistema()
+
+  }
+
+
+  const abrirAnalisis = () => {
+
+    setVista(
+      'analisis'
+    )
+
+
+    cargarEstadisticasRiesgo()
 
   }
 
@@ -1892,10 +2070,8 @@ function AdminReportes() {
                 }`
               }
 
-              onClick={() =>
-                setVista(
-                  'analisis'
-                )
+              onClick={
+                abrirAnalisis
               }
             >
 
@@ -1942,7 +2118,7 @@ function AdminReportes() {
                             : vista ===
                               'sistema'
                                 ? 'Infraestructura'
-                                : 'Análisis de reportes'
+                                : 'Análisis del sistema'
                 }
 
               </p>
@@ -1984,7 +2160,7 @@ function AdminReportes() {
                             : vista ===
                               'sistema'
                                 ? 'Supervisa servicios, base de datos y modelos de inteligencia artificial.'
-                                : 'Resumen estadístico de los reportes ciudadanos registrados.'
+                                : 'Resumen estadístico de reportes ciudadanos y uso del sistema de riesgo.'
                 }
 
               </p>
@@ -2848,6 +3024,7 @@ function AdminReportes() {
 
                   {
                     historialFiltrado.map(
+
                       reporte => {
 
                         const resuelto =
@@ -3338,6 +3515,150 @@ function AdminReportes() {
             && (
 
               <>
+
+                <div className="admin-analisis-seccion">
+
+                  <h3>
+                    Uso del sistema de riesgo
+                  </h3>
+
+
+                  {
+                    errorEstadisticasRiesgo && (
+
+                      <div className="admin-panel-error">
+                        {errorEstadisticasRiesgo}
+                      </div>
+
+                    )
+                  }
+
+
+                  {
+                    cargandoEstadisticasRiesgo
+                    &&
+                    !estadisticasRiesgo
+                      ? (
+
+                        <p>
+                          Cargando estadísticas...
+                        </p>
+
+                      )
+                      : (
+
+                        <div className="admin-analisis-grid">
+
+
+                          <div className="admin-analisis-card">
+
+                            <span>
+                              Consultas realizadas
+                            </span>
+
+                            <strong>
+                              {
+                                estadisticasRiesgo
+                                  ?.consultas_total
+                                ??
+                                0
+                              }
+                            </strong>
+
+                            <p>
+                              Consultas territoriales de usuarios
+                            </p>
+
+                          </div>
+
+
+                          <div className="admin-analisis-card">
+
+                            <span>
+                              Consultas de hoy
+                            </span>
+
+                            <strong>
+                              {
+                                estadisticasRiesgo
+                                  ?.consultas_hoy
+                                ??
+                                0
+                              }
+                            </strong>
+
+                            <p>
+                              Consultas realizadas durante el día
+                            </p>
+
+                          </div>
+
+
+                          <div className="admin-analisis-card">
+
+                            <span>
+                              Inferencias registradas
+                            </span>
+
+                            <strong>
+                              {
+                                estadisticasRiesgo
+                                  ?.inferencias_total
+                                ??
+                                0
+                              }
+                            </strong>
+
+                            <p>
+                              Resultados almacenados del modelo de riesgo
+                            </p>
+
+                          </div>
+
+
+                          <div className="admin-analisis-card">
+
+                            <span>
+                              Comuna más consultada
+                            </span>
+
+                            <strong>
+                              {
+                                estadisticasRiesgo
+                                  ?.comuna_mas_consultada
+                                ||
+                                '-'
+                              }
+                            </strong>
+
+                            <p>
+                              {
+                                estadisticasRiesgo
+                                  ?.comuna_mas_consultada
+                                  ? `${
+                                      estadisticasRiesgo
+                                        .comuna_mas_consultada_total
+                                    } consulta${
+                                      estadisticasRiesgo
+                                        .comuna_mas_consultada_total ===
+                                      1
+                                        ? ''
+                                        : 's'
+                                    }`
+                                  : 'Sin consultas registradas'
+                              }
+                            </p>
+
+                          </div>
+
+
+                        </div>
+
+                      )
+                  }
+
+                </div>
+
 
                 <div className="admin-analisis-grid">
 

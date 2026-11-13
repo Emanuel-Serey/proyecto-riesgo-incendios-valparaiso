@@ -787,6 +787,72 @@ def admin_system_status(
 
     }
 
+# =========================================================
+# ESTADISTICAS DE RIESGO - ADMIN
+# =========================================================
+
+@app.get(
+    "/admin/riesgo/estadisticas"
+)
+def obtener_estadisticas_riesgo_admin(
+
+    admin: AdminActual = Depends(
+        obtener_admin_actual
+    ),
+
+):
+
+    try:
+
+        respuesta = requests.get(
+
+            f"{RISK_SERVICE}/estadisticas/uso",
+
+            timeout=10,
+
+        )
+
+
+    except requests.RequestException:
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Risk Service no disponible"
+            ),
+        )
+
+
+    if (
+        respuesta.status_code
+        !=
+        200
+    ):
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "No fue posible obtener "
+                "las estadísticas de riesgo"
+            ),
+        )
+
+
+    try:
+
+        return respuesta.json()
+
+
+    except ValueError:
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Respuesta inválida "
+                "de Risk Service"
+            ),
+        )
+
 
 # =========================================================
 # RIESGO
