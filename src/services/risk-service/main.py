@@ -121,6 +121,16 @@ class VariablesRiesgo(BaseModel):
     vegetacion_cobertura: str
     incendios_historicos: float
 
+class ConsultaRiesgo(BaseModel):
+    id_variables: int
+    comuna: str
+    fecha_prediccion: date
+    fecha_meteorologia: date | None = None
+
+    nivel_riesgo: str
+    score_modelo: float
+
+    origen: str = "web_publica"
 
 # =========================================================
 # CLASIFICACION
@@ -188,6 +198,57 @@ def registrar_inferencia(
             }
         )
 
+def registrar_consulta_riesgo(
+    datos: ConsultaRiesgo
+):
+    consulta = text("""
+        INSERT INTO public.consultas_riesgo (
+            comuna,
+            id_variables,
+            fecha_prediccion,
+            fecha_meteorologia,
+            nivel_riesgo,
+            score_modelo,
+            origen
+        )
+        VALUES (
+            :comuna,
+            :id_variables,
+            :fecha_prediccion,
+            :fecha_meteorologia,
+            :nivel_riesgo,
+            :score_modelo,
+            :origen
+        );
+    """)
+
+    with engine.begin() as conexion:
+
+        conexion.execute(
+            consulta,
+            {
+                "comuna":
+                    datos.comuna,
+
+                "id_variables":
+                    datos.id_variables,
+
+                "fecha_prediccion":
+                    datos.fecha_prediccion,
+
+                "fecha_meteorologia":
+                    datos.fecha_meteorologia,
+
+                "nivel_riesgo":
+                    datos.nivel_riesgo,
+
+                "score_modelo":
+                    datos.score_modelo,
+
+                "origen":
+                    datos.origen,
+            }
+        )
 
 # =========================================================
 # SHAP
@@ -438,6 +499,30 @@ def health():
 # =========================================================
 # PREDICCION
 # =========================================================
+
+@app.post("/consultas")
+def registrar_consulta(
+    datos: ConsultaRiesgo
+):
+    try:
+
+        registrar_consulta_riesgo(
+            datos
+        )
+
+        return {
+            "registrada": True
+        }
+
+    except SQLAlchemyError:
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Error al registrar "
+                "la consulta de riesgo"
+            )
+        )
 
 @app.post("/predecir")
 def predecir(

@@ -792,9 +792,10 @@ def admin_system_status(
 # RIESGO
 # =========================================================
 
-@app.get("/riesgo/{comuna}")
-def obtener_riesgo(
+
+def calcular_riesgo_comuna(
     comuna: str,
+    registrar_consulta: bool = False,
 ):
 
     comuna_url = quote(
@@ -942,6 +943,81 @@ def obtener_riesgo(
         respuesta_riesgo.json()
     )
 
+    datos_consulta = {
+
+        "id_variables":
+            variables[
+                "id_variables"
+            ],
+
+        "comuna":
+            variables[
+                "comuna"
+            ],
+
+        "fecha_prediccion":
+            variables[
+                "fecha_prediccion"
+            ],
+
+        "fecha_meteorologia":
+            variables.get(
+                "fecha_meteorologia"
+            ),
+
+        "nivel_riesgo":
+            riesgo[
+                "nivel_riesgo"
+            ],
+
+        "score_modelo":
+            riesgo[
+                "score_modelo"
+            ],
+
+        "origen":
+            "web_publica",
+
+    }
+
+    if registrar_consulta:
+
+        try:
+
+            respuesta_consulta = requests.post(
+
+                f"{RISK_SERVICE}/consultas",
+
+                json=
+                    datos_consulta,
+
+                timeout=
+                    10,
+
+            )
+
+
+            if (
+                respuesta_consulta.status_code
+                !=
+                200
+            ):
+
+                print(
+                    "No fue posible registrar "
+                    "la consulta de riesgo: "
+                    f"{respuesta_consulta.text}"
+                )
+
+
+        except requests.RequestException as error:
+
+            print(
+                "No fue posible registrar "
+                "la consulta de riesgo: "
+                f"{error}"
+            )    
+
 
     return {
 
@@ -1003,6 +1079,16 @@ def obtener_riesgo(
 
     }
 
+@app.get("/riesgo/{comuna}")
+def obtener_riesgo(
+    comuna: str,
+):
+
+    return calcular_riesgo_comuna(
+        comuna,
+        registrar_consulta=True,
+    )
+
 # =========================================================
 # RIESGO + EXPLICACION PARA EL USUARIO
 # =========================================================
@@ -1018,8 +1104,9 @@ def obtener_riesgo_explicado(
     # OBTENER RESULTADO REAL DEL SISTEMA
     # -----------------------------------------------------
 
-    resultado = obtener_riesgo(
-        comuna
+    resultado = calcular_riesgo_comuna(
+        comuna,
+        registrar_consulta=False,
     )
 
 
