@@ -632,9 +632,68 @@ def ejecutar_pipeline():
         )
 
 
-        actualizar_datos(
-            fecha_prediccion
-        )
+        try:
+
+            actualizar_datos(
+                fecha_prediccion
+            )
+
+
+        except ValueError as error:
+
+            errores_dmc_sin_datos = {
+                "No se encontraron archivos JSON DMC.",
+                "No se encontraron datos DMC válidos.",
+            }
+
+
+            if (
+                str(error)
+                not in
+                errores_dmc_sin_datos
+            ):
+
+                raise
+
+
+            logger.warning(
+                "Meteorología DMC aún no disponible "
+                "para %s. "
+                "Se mantiene la última evaluación "
+                "disponible y el ETL volverá a "
+                "intentarlo en la próxima ejecución.",
+                fecha_prediccion
+                -
+                timedelta(
+                    days=1
+                ),
+            )
+
+
+            logger.info(
+                "=" * 55
+            )
+
+
+            logger.info(
+                "Pipeline ETL finalizado sin cambios | "
+                "Fecha objetivo=%s | "
+                "Tiempo total=%.2f s.",
+                fecha_prediccion,
+                (
+                    time.perf_counter()
+                    -
+                    inicio
+                ),
+            )
+
+
+            logger.info(
+                "=" * 55
+            )
+
+
+            return
 
 
         # -------------------------------------------------
