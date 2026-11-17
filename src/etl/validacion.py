@@ -25,7 +25,6 @@ if not logger.handlers:
     logger.addHandler(fh)
     logger.addHandler(sh)
 
-
 # =========================
 # VALIDACIONES COMUNES
 # =========================
@@ -337,11 +336,16 @@ def validar_variables_actuales():
         - df["fecha_meteorologia"]
     ).dt.days
 
-    errores_d1 = (diferencia != 1).sum()
+
+    errores_d1 = (
+        diferencia != 1
+    ).sum()
+
 
     logger.info(
-        "Temporalidad DMC | Filas que no cumplen D-1=%s.",
-        errores_d1
+        "Temporalidad DMC | "
+        "Filas que no cumplen D-1=%s.",
+        errores_d1,
     )
 
     variables_modelo = [

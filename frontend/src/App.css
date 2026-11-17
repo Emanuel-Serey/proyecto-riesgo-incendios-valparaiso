@@ -2701,3 +2701,220 @@
 
   font-weight: 700;
 }
+
+/* =========================================================
+   RESPONSIVE MÓVIL - MAPA PÚBLICO
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  /* -------------------------------------------------------
+     CABECERA
+     ------------------------------------------------------- */
+
+  .header {
+    height: auto;
+    min-height: 96px;
+
+    padding:
+      14px 16px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    line-height: 1.05;
+  }
+
+  .eyebrow {
+    font-size: 9px;
+    letter-spacing: 1.2px;
+  }
+
+
+  /* -------------------------------------------------------
+     MAPA
+     ------------------------------------------------------- */
+
+  .mapa-contenedor {
+    height: 58vh;
+    min-height: 420px;
+  }
+
+
+  /* -------------------------------------------------------
+     ETIQUETA SUPERIOR
+     ------------------------------------------------------- */
+
+  .mapa-etiqueta {
+    top: 12px;
+    left: 12px;
+
+    min-width: 0;
+    max-width: 170px;
+
+    padding:
+      8px 10px;
+
+    font-size: 10px;
+  }
+
+  .mapa-etiqueta span {
+    font-size: 9px;
+  }
+
+
+  /* -------------------------------------------------------
+     LEYENDA
+     ------------------------------------------------------- */
+
+  .leyenda-mapa {
+    right: 10px;
+    bottom: 12px;
+
+    min-width: 128px;
+
+    padding:
+      9px 10px;
+  }
+
+  .leyenda-titulo {
+    margin-bottom: 5px;
+
+    font-size: 10px;
+  }
+
+  .leyenda-item {
+    gap: 5px;
+
+    margin-top: 3px;
+
+    font-size: 9px;
+  }
+
+  .leyenda-color {
+    width: 9px;
+    height: 9px;
+  }
+
+  .leyenda-incendio {
+    width: 14px;
+
+    font-size: 13px;
+  }
+
+  .leyenda-separador {
+    margin:
+      7px 0 5px;
+  }
+
+
+  /* -------------------------------------------------------
+     BOTÓN REPORTAR
+     Queda encima de la leyenda, sin solaparse.
+     ------------------------------------------------------- */
+
+  .boton-reportar-incendio {
+    top: auto;
+
+    right: 10px;
+    bottom: 155px;
+
+    gap: 5px;
+
+    padding:
+      9px 11px;
+
+    font-size: 10px;
+
+    border-radius: 8px;
+  }
+
+  .boton-reportar-incendio span {
+    font-size: 14px;
+  }
+
+
+  /* -------------------------------------------------------
+     CONTROLES LEAFLET
+     ------------------------------------------------------- */
+
+  .leaflet-left
+  .leaflet-control {
+    margin-left: 10px;
+  }
+
+  .leaflet-bottom
+  .leaflet-control {
+    margin-bottom: 10px;
+  }
+
+  .leaflet-control-attribution {
+    max-width:
+      calc(100vw - 150px);
+
+    padding:
+      2px 4px !important;
+
+    font-size: 8px !important;
+
+    line-height: 1.25 !important;
+  }
+
+
+  /* -------------------------------------------------------
+   POPUP DE REPORTE
+   ------------------------------------------------------- */
+
+.leaflet-popup-content-wrapper {
+  max-width: calc(100vw - 28px);
+}
+
+
+.leaflet-popup-content {
+  width:
+    min(
+      235px,
+      calc(100vw - 75px)
+    ) !important;
+
+  margin: 10px !important;
+}
+
+
+.reporte-popup-publico {
+  width: 100%;
+  min-width: 0;
+
+  max-height: 300px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  padding-right: 5px;
+
+  overscroll-behavior: contain;
+}
+
+
+.reporte-popup-imagen {
+  width: 100%;
+
+  max-height: 105px;
+
+  object-fit: cover;
+
+  border-radius: 7px;
+}
+
+
+.reporte-popup-publico::-webkit-scrollbar {
+  width: 4px;
+}
+
+
+.reporte-popup-publico::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #94a3b8;
+}
+
+}

@@ -11,6 +11,7 @@ import {
   GeoJSON,
   MapContainer,
   TileLayer,
+  useMap,
 } from 'react-leaflet'
 
 import {
@@ -37,6 +38,16 @@ const TIPOS_PERMITIDOS = [
 // =========================================================
 // MAPA DE SELECCIÓN MANUAL
 // =========================================================
+
+function ConfigurarAtribucionMapa() {
+  const map = useMap()
+
+  useEffect(() => {
+    map.attributionControl.setPrefix(false)
+  }, [map])
+
+  return null
+}
 
 function MapaUbicacionManual({
   geojson,
@@ -121,6 +132,8 @@ function MapaUbicacionManual({
           true
         }
       >
+
+        <ConfigurarAtribucionMapa />
 
         <TileLayer
           attribution={
@@ -1145,25 +1158,17 @@ function ReporteIncendio() {
 
 
                   <input
-                    ref={
-                      inputImagenRef
-                    }
-
+                    ref={inputImagenRef}
                     className="input-imagen-oculto"
-
                     id="imagen-reporte"
-
                     type="file"
-
-                    accept={
-                      'image/jpeg,image/png,image/webp'
+                    accept="image/jpeg,image/png,image/webp"
+                    capture={
+                      modoUbicacion === 'gps'
+                        ? 'environment'
+                        : undefined
                     }
-
-                    capture="environment"
-
-                    onChange={
-                      seleccionarImagen
-                    }
+                    onChange={seleccionarImagen}
                   />
 
 
@@ -1193,12 +1198,16 @@ function ReporteIncendio() {
 
 
                         <strong>
-                          Tomar o seleccionar fotografía
+                          {modoUbicacion === 'gps'
+                            ? 'Tomar fotografía'
+                            : 'Seleccionar fotografía'}
                         </strong>
 
 
                         <small>
-                          JPG, PNG o WebP · máximo 10 MB
+                          {modoUbicacion === 'gps'
+                            ? 'Toma una fotografía desde el lugar del reporte · máximo 10 MB'
+                            : 'Selecciona una fotografía JPG, PNG o WebP · máximo 10 MB'}
                         </small>
 
                       </div>

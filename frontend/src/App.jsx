@@ -78,6 +78,10 @@ function ConfigurarMapa({
 }) {
   const map = useMap()
 
+  useEffect(() => {
+    map.attributionControl.setPrefix(false)
+  }, [map])
+
 
   useEffect(() => {
     if (!regionGeojson) {
@@ -1314,8 +1318,8 @@ function App() {
                 >
 
                   <Popup
-                    minWidth={280}
-                    maxWidth={320}
+                    minWidth={220}
+                    maxWidth={300}
                   >
 
                     <div className="reporte-popup-publico">

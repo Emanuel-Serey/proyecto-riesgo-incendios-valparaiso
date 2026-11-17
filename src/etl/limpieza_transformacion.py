@@ -31,6 +31,8 @@ if not logger.handlers:
     logger.addHandler(fh)
     logger.addHandler(sh)
 
+class DatosDMCNoDisponibles(RuntimeError):
+    pass
 
 # =========================
 # GENERALES
@@ -103,7 +105,9 @@ def procesar_dmc(fecha_meteorologia=None):
     )
 
     if not archivos:
-        raise ValueError("No se encontraron archivos JSON DMC.")
+        raise DatosDMCNoDisponibles(
+            "No se encontraron archivos JSON DMC."
+        )
 
     dfs = []
     vacios = 0
@@ -121,7 +125,9 @@ def procesar_dmc(fecha_meteorologia=None):
             logger.warning("DMC | Error leyendo %s | %s", archivo.name, error)
 
     if not dfs:
-        raise ValueError("No se encontraron datos DMC válidos.")
+        raise DatosDMCNoDisponibles(
+            "No se encontraron datos DMC válidos."
+        )
 
     dmc = pd.concat(dfs, ignore_index=True)
 
@@ -150,7 +156,7 @@ def procesar_dmc(fecha_meteorologia=None):
         dmc = dmc[dmc["fecha"] == fecha_meteorologia].copy()
 
         if dmc.empty:
-            raise ValueError(
+            raise DatosDMCNoDisponibles(
                 f"No existen observaciones DMC para "
                 f"{fecha_meteorologia.date()}."
             )
@@ -498,10 +504,17 @@ def ejecutar_transformacion(modo="historico", fecha_meteorologia=None):
             "Limpieza y transformación finalizada correctamente"
         )
 
+    except DatosDMCNoDisponibles as error:
+        logger.warning(
+            "Meteorología DMC no disponible: %s",
+            error,
+        )
+        raise
+
     except Exception as error:
         logger.exception(
             "Error durante limpieza y transformación: %s",
-            error
+            error,
         )
         raise
 

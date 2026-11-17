@@ -110,7 +110,7 @@ def crear_engine_postgis():
         )
 
     url = (
-        f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}"
+        f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}"
         f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     )
 

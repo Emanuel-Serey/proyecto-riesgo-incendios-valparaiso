@@ -939,7 +939,9 @@ def cargar_datos_actuales():
 # INTEGRACIÓN ACTUAL / PRODUCCIÓN
 # ============================================================
 
-def integrar_actual():
+def integrar_actual(
+    fecha_prediccion=None,
+):
 
     logger.info(
         "Inicio de integración de variables actuales "
@@ -974,10 +976,34 @@ def integrar_actual():
         fechas_meteo[0]
     )
 
-    fecha_prediccion = (
+    if fecha_prediccion is None:
+
+        fecha_prediccion = (
+            fecha_meteorologia
+            +
+            pd.Timedelta(days=1)
+        )
+
+    else:
+
+        fecha_prediccion = (
+            pd.Timestamp(
+                fecha_prediccion
+            )
+            .normalize()
+        )
+
+
+    if (
         fecha_meteorologia
-        + pd.Timedelta(days=1)
-    )
+        >=
+        fecha_prediccion
+    ):
+
+        raise ValueError(
+            "La fecha meteorológica debe ser "
+            "anterior a la fecha de predicción."
+        )
 
     # --------------------------------------------------------
     # COMUNAS Y ASIGNACIÓN POSTGIS

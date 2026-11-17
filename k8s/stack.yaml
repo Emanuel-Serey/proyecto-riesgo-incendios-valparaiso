@@ -698,6 +698,8 @@ data:
 
         listen 80;
 
+        client_max_body_size 12m;
+
         location /api/ {
 
             proxy_pass http://api_gateway/;

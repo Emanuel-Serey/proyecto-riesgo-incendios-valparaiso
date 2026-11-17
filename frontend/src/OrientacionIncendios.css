@@ -690,3 +690,55 @@ span:last-child {
   }
 
 }
+
+/* =========================================================
+   POPUP PÚBLICO - AJUSTE MÓVIL FINAL
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .leaflet-popup-content
+  .reporte-popup-publico {
+    width: 100%;
+
+    min-width: 0 !important;
+    max-height: 230px !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+
+    padding-right: 4px;
+
+    overscroll-behavior: contain;
+  }
+
+
+  .leaflet-popup-content
+  .reporte-popup-imagen {
+    width: 100%;
+
+    max-height: 80px !important;
+
+    object-fit: cover;
+  }
+
+
+  .leaflet-popup-content {
+    width: 230px !important;
+
+    margin: 9px !important;
+  }
+
+
+  .reporte-popup-publico::-webkit-scrollbar {
+    width: 4px;
+  }
+
+
+  .reporte-popup-publico::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+
+    background: #94a3b8;
+  }
+
+}

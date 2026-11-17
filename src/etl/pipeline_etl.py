@@ -10,7 +10,8 @@ from sqlalchemy import text
 from ingesta import ejecutar_ingesta
 
 from limpieza_transformacion import (
-    ejecutar_transformacion
+    DatosDMCNoDisponibles,
+    ejecutar_transformacion,
 )
 
 from integracion import (
@@ -152,13 +153,23 @@ def ejecutar_etapa(
         return resultado
 
 
+    except DatosDMCNoDisponibles as error:
+
+        logger.warning(
+            "Etapa sin datos DMC: %s | %s",
+            nombre,
+            error,
+        )
+
+        raise
+
+
     except Exception:
 
         logger.exception(
             "Falló la etapa: %s.",
             nombre,
         )
-
 
         raise
 
@@ -324,6 +335,7 @@ def preparar_postgresql():
 
 def variables_del_dia_completas(
     fecha_prediccion,
+    exigir_d1=False,
 ):
 
     engine = (
@@ -347,7 +359,17 @@ def variables_del_dia_completas(
                         COUNT(
                             DISTINCT comuna
                         )
-                            AS comunas
+                            AS comunas,
+
+                        MIN(
+                            fecha_meteorologia
+                        )
+                            AS fecha_meteo_min,
+
+                        MAX(
+                            fecha_meteorologia
+                        )
+                            AS fecha_meteo_max
 
                     FROM
                         public.variables_actuales
@@ -383,6 +405,26 @@ def variables_del_dia_completas(
             0
         )
 
+        fecha_meteo_min = (
+            estado[
+                "fecha_meteo_min"
+            ]
+        )
+
+
+        fecha_meteo_max = (
+            estado[
+                "fecha_meteo_max"
+            ]
+        )
+
+
+        completo = (
+            registros == 36
+            and
+            comunas == 36
+        )
+
 
         logger.info(
             "Estado variables actuales | "
@@ -395,11 +437,45 @@ def variables_del_dia_completas(
         )
 
 
-        return (
-            registros == 36
-            and
-            comunas == 36
+        if not completo:
+            return False
+
+
+        if not exigir_d1:
+            return True
+
+
+        fecha_meteorologia_objetivo = (
+            fecha_prediccion
+            -
+            timedelta(days=1)
         )
+
+
+        d1_disponible = (
+            fecha_meteo_min
+            ==
+            fecha_meteorologia_objetivo
+            and
+            fecha_meteo_max
+            ==
+            fecha_meteorologia_objetivo
+        )
+
+
+        if not d1_disponible:
+
+            logger.info(
+                "La predicción de %s existe, "
+                "pero utiliza meteorología de %s. "
+                "Se intentará actualizar a %s.",
+                fecha_prediccion,
+                fecha_meteo_max,
+                fecha_meteorologia_objetivo,
+            )
+
+
+        return d1_disponible
 
 
     finally:
@@ -467,9 +543,7 @@ def actualizar_datos(
     fecha_meteorologia = (
         fecha_prediccion
         -
-        timedelta(
-            days=1
-        )
+        timedelta(days=1)
     )
 
 
@@ -503,6 +577,8 @@ def actualizar_datos(
     ejecutar_etapa(
         "Integración",
         integrar_actual,
+        fecha_prediccion=
+            fecha_prediccion,
     )
 
 
@@ -516,6 +592,9 @@ def actualizar_datos(
         "Carga PostgreSQL",
         cargar_variables_actuales,
     )
+
+
+    return fecha_meteorologia
 
 
 # =========================================================
@@ -582,7 +661,8 @@ def ejecutar_pipeline():
         # -------------------------------------------------
 
         if variables_del_dia_completas(
-            fecha_prediccion
+            fecha_prediccion,
+            exigir_d1=True,
         ):
 
             logger.info(
@@ -620,53 +700,38 @@ def ejecutar_pipeline():
 
 
         # -------------------------------------------------
-        # NO EXISTEN LAS 36 COMUNAS → INTENTAR DMC
+        # INTENTAR ACTUALIZAR CON LA MEJOR METEOROLOGÍA
+        # DISPONIBLE ENTRE D-1 Y D-5
         # -------------------------------------------------
 
         logger.info(
-            "No existen las 36 variables "
-            "para %s. "
-            "Se intentará obtener la "
-            "meteorología del día anterior.",
+            "La predicción de %s no está disponible "
+            "con meteorología D-1. "
+            "Se intentará obtener la meteorología "
+            "del día anterior desde DMC.",
             fecha_prediccion,
         )
 
 
         try:
 
-            actualizar_datos(
-                fecha_prediccion
+            fecha_meteorologia_usada = (
+                actualizar_datos(
+                    fecha_prediccion
+                )
             )
 
 
-        except ValueError as error:
-
-            errores_dmc_sin_datos = {
-                "No se encontraron archivos JSON DMC.",
-                "No se encontraron datos DMC válidos.",
-            }
-
-
-            if (
-                str(error)
-                not in
-                errores_dmc_sin_datos
-            ):
-
-                raise
-
+        except DatosDMCNoDisponibles as error:
 
             logger.warning(
-                "Meteorología DMC aún no disponible "
-                "para %s. "
-                "Se mantiene la última evaluación "
-                "disponible y el ETL volverá a "
-                "intentarlo en la próxima ejecución.",
-                fecha_prediccion
-                -
-                timedelta(
-                    days=1
-                ),
+                "No existe meteorología DMC utilizable "
+                "para generar la predicción de %s | %s "
+                "Se mantiene la última evaluación disponible "
+                "y se volverá a intentar en la próxima "
+                "ejecución del CronJob.",
+                fecha_prediccion,
+                error,
             )
 
 
@@ -694,6 +759,15 @@ def ejecutar_pipeline():
 
 
             return
+
+
+        logger.info(
+            "Actualización meteorológica aplicada | "
+            "Predicción=%s | "
+            "Meteorología utilizada=%s.",
+            fecha_prediccion,
+            fecha_meteorologia_usada,
+        )
 
 
         # -------------------------------------------------

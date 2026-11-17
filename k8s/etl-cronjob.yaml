@@ -1,3 +1,22 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+
+metadata:
+  name: etl-dmc-pvc
+
+spec:
+  accessModes:
+    - ReadWriteOnce
+
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+
+apiVersion: batch/v1
+kind: CronJob
+
 apiVersion: batch/v1
 kind: CronJob
 
@@ -7,19 +26,17 @@ metadata:
 
 spec:
 
-  # =======================================================
-  # INTENTOS DURANTE LA MADRUGADA
-  #
-  # 00:30
-  # 01:30
-  # 02:30
-  # ...
-  # 08:30
-  #
-  # Hora de Chile.
-  # =======================================================
+# =======================================================
+# EJECUCIÓN LOCAL
+#
+# El ETL se intenta cada 30 minutos durante todo el día.
+# Esto permite recuperar automáticamente la ejecución
+# aunque Docker Desktop o el PC se inicien más tarde.
+#
+# Hora de Chile.
+# =======================================================
 
-  schedule: "0,30 0-12 * * *"
+  schedule: "0,30 * * * *"
 
   timeZone: "America/Santiago"
 
@@ -63,6 +80,10 @@ spec:
 
           securityContext:
 
+            fsGroup: 10001
+
+            fsGroupChangePolicy: OnRootMismatch
+
             seccompProfile:
               type: RuntimeDefault
 
@@ -77,10 +98,12 @@ spec:
 
 
               command:
-
                 - python
-
                 - src/etl/pipeline_etl.py
+
+              volumeMounts:
+                - name: dmc-data
+                  mountPath: /app/data/raw/dmc/api
 
 
               env:
@@ -183,3 +206,10 @@ spec:
                   cpu: "1"
 
                   memory: 1Gi
+
+          volumes:
+
+            - name: dmc-data
+
+              persistentVolumeClaim:
+                claimName: etl-dmc-pvc
