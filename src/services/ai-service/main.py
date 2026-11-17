@@ -1,6 +1,6 @@
 import asyncio
 import os
-
+from prometheus_fastapi_instrumentator import Instrumentator
 from dotenv import load_dotenv
 
 from fastapi import (
@@ -55,6 +55,14 @@ gemini = (
 app = FastAPI(
     title="AI Service - Explicacion de Riesgo",
     version="2.2"
+)
+
+Instrumentator().instrument(
+    app
+).expose(
+    app,
+    endpoint="/metrics",
+    include_in_schema=False,
 )
 
 

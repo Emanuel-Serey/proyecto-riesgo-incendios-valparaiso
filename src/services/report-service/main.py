@@ -19,7 +19,7 @@ from fastapi import (
 )
 
 from fastapi.staticfiles import StaticFiles
-
+from prometheus_fastapi_instrumentator import Instrumentator
 from huggingface_hub import hf_hub_download
 
 from PIL import Image
@@ -852,6 +852,14 @@ app = FastAPI(
     lifespan=
         lifespan,
 
+)
+
+Instrumentator().instrument(
+    app
+).expose(
+    app,
+    endpoint="/metrics",
+    include_in_schema=False,
 )
 
 

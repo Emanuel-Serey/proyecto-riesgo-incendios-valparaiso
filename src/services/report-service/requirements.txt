@@ -13,3 +13,4 @@ huggingface-hub
 
 Pillow
 ImageHash==4.3.2
+prometheus-fastapi-instrumentator
