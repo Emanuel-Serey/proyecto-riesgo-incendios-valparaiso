@@ -1,0 +1,309 @@
+name: incendios-cloud
+
+services:
+
+  # =========================================================
+  # POSTGRESQL + POSTGIS
+  # =========================================================
+
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+
+    image: incendios-postgis:17
+
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER} -d ${DB_NAME}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # DATA SERVICE
+  # =========================================================
+
+  data-service:
+    build:
+      context: .
+      dockerfile: src/services/data-service/Dockerfile
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+    expose:
+      - "8001"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # RISK SERVICE
+  # =========================================================
+
+  risk-service:
+    build:
+      context: .
+      dockerfile: src/services/risk-service/Dockerfile
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      MODELO_VERSION: ${MODELO_VERSION:-random_forest_v1}
+
+    expose:
+      - "8002"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # AI SERVICE
+  # =========================================================
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: src/services/ai-service/Dockerfile
+
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+
+    expose:
+      - "8003"
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # REPORT SERVICE
+  # =========================================================
+
+  report-service:
+    build:
+      context: .
+      dockerfile: src/services/report-service/Dockerfile
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      YOLO_CONFIDENCE: ${YOLO_CONFIDENCE:-0.25}
+
+    volumes:
+      - report_images:/app/data/reportes
+
+    expose:
+      - "8004"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # API GATEWAY
+  # =========================================================
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/services/api-gateway/Dockerfile
+
+    environment:
+      DATA_SERVICE_URL: http://data-service:8001
+      RISK_SERVICE_URL: http://risk-service:8002
+      REPORT_SERVICE_URL: http://report-service:8004
+      AI_SERVICE_URL: http://ai-service:8003
+
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH}
+      JWT_SECRET: ${JWT_SECRET}
+
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+
+    expose:
+      - "8000"
+
+    depends_on:
+      - data-service
+      - risk-service
+      - ai-service
+      - report-service
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # FRONTEND
+  # =========================================================
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+
+    expose:
+      - "80"
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # NGINX
+  # ÚNICO PUNTO PÚBLICO DE LA APLICACIÓN
+  # =========================================================
+
+  nginx:
+    image: nginx:alpine
+
+    ports:
+      - "${PUBLIC_HTTP_PORT:-8088}:80"
+
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+    depends_on:
+      - frontend
+      - api-gateway
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # PROMETHEUS
+  # Solo accesible desde la propia máquina
+  # =========================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+
+    volumes:
+      - ./monitoreo/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9091}:9090"
+
+    depends_on:
+      - api-gateway
+      - data-service
+      - risk-service
+      - ai-service
+      - report-service
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # GRAFANA
+  # Solo accesible desde la propia máquina por ahora
+  # =========================================================
+
+  grafana:
+    image: grafana/grafana:latest
+
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+
+    depends_on:
+      - prometheus
+
+    restart: unless-stopped
+
+
+  # =========================================================
+  # ETL DMC
+  #
+  # No se ejecuta con "docker compose up".
+  # Se ejecutará periódicamente mediante cron en Oracle.
+  # =========================================================
+
+  etl:
+    build:
+      context: .
+      dockerfile: src/etl/Dockerfile
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      DMC_USUARIO: ${DMC_USUARIO}
+      DMC_TOKEN: ${DMC_TOKEN}
+
+    volumes:
+      - etl_dmc_cache:/app/data/raw/dmc/api
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    profiles:
+      - jobs
+
+
+# =========================================================
+# VOLÚMENES PERSISTENTES
+# =========================================================
+
+volumes:
+
+  postgres_data:
+
+  report_images:
+
+  prometheus_data:
+
+  grafana_data:
+
+  etl_dmc_cache:

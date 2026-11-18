@@ -2,11 +2,13 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
+
   - job_name: "api-gateway"
     metrics_path: /metrics
     static_configs:
       - targets:
           - "api-gateway:8000"
+
 
   - job_name: "data-service"
     metrics_path: /metrics
@@ -14,8 +16,23 @@ scrape_configs:
       - targets:
           - "data-service:8001"
 
+
   - job_name: "risk-service"
     metrics_path: /metrics
     static_configs:
       - targets:
           - "risk-service:8002"
+
+
+  - job_name: "ai-service"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "ai-service:8003"
+
+
+  - job_name: "report-service"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "report-service:8004"

@@ -10,15 +10,6 @@ notebooks
 
 data/*
 
-!data/raw/
-data/raw/*
-
-!data/raw/conaf/
-!data/raw/conaf/**
-
-!data/raw/ide/
-!data/raw/ide/**
-
 !data/processed/
 data/processed/*
 

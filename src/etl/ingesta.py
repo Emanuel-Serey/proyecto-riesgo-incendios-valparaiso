@@ -389,19 +389,19 @@ def ejecutar_ingesta(
 
     try:
 
-        # Estas fuentes siguen siendo necesarias
-        # para el histórico y las variables territoriales.
-        verificar_shapefile(
-            RUTA_CONAF,
-            "CONAF"
-        )
-
-        verificar_shapefile(
-            RUTA_IDE,
-            "IDE Chile"
-        )
-
         if modo == "historico":
+
+            # Los shapefiles CONAF e IDE solo son necesarios
+            # para construir el dataset histórico inicial.
+            verificar_shapefile(
+                RUTA_CONAF,
+                "CONAF"
+            )
+
+            verificar_shapefile(
+                RUTA_IDE,
+                "IDE Chile"
+            )
 
             ingestar_dmc_historico()
 
