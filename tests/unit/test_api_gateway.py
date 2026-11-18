@@ -254,18 +254,26 @@ def test_consulta_riesgo_correcta(
         timeout
     ):
 
-        assert url.endswith(
-            "/predecir"
-        )
+        if url.endswith("/predecir"):
 
-        assert (
-            json["comuna"]
-            == "Valparaíso"
-        )
+            assert json["comuna"] == "Valparaíso"
 
-        return FakeResponse(
-            200,
-            resultado_modelo
+            return FakeResponse(
+                200,
+                resultado_modelo
+            )
+
+        if url.endswith("/consultas"):
+
+            assert json["comuna"] == "Valparaíso"
+
+            return FakeResponse(
+                200,
+                {"ok": True}
+            )
+
+        raise AssertionError(
+            f"POST inesperado: {url}"
         )
 
     monkeypatch.setattr(

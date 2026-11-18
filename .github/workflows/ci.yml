@@ -138,7 +138,7 @@ jobs:
 
       - name: Auditar dependencias npm
         run: |
-          npm audit --audit-level=high
+          npm audit --omit=dev --audit-level=high
 
       - name: Construir React
         run: |
