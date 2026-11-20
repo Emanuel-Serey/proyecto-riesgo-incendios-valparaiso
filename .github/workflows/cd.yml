@@ -47,7 +47,15 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            # Validar la configuración de Nginx antes del despliegue
+            docker compose -f docker-compose.cloud.yml run --rm --no-deps nginx nginx -t
+
+            # Actualizar toda la aplicación
             docker compose -f docker-compose.cloud.yml up -d --build --remove-orphans
 
+            # Recrear Nginx para aplicar cambios en archivos montados
+            docker compose -f docker-compose.cloud.yml up -d --no-deps --force-recreate nginx
+
+            # Mostrar estado final
             docker compose -f docker-compose.cloud.yml ps
           EOF
