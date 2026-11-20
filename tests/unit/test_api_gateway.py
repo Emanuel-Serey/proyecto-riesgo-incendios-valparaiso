@@ -341,3 +341,82 @@ def test_comuna_no_encontrada(
         "detail":
             "Comuna no encontrada"
     }
+
+# =========================================================
+# LOGIN ADMIN CORRECTO
+# =========================================================
+
+def test_login_admin_correcto(
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        gateway,
+        "autenticar_admin",
+        lambda username, password: True
+    )
+
+    monkeypatch.setattr(
+        gateway,
+        "crear_access_token",
+        lambda username: "token-prueba"
+    )
+
+    response = client.post(
+        "/auth/token",
+        data={
+            "username": "admin",
+            "password": "correcta"
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["access_token"] == "token-prueba"
+    assert data["token_type"] == "bearer"
+    assert data["expires_in"] > 0
+
+
+# =========================================================
+# LOGIN ADMIN INCORRECTO
+# =========================================================
+
+def test_login_admin_incorrecto(
+    monkeypatch
+):
+
+    monkeypatch.setattr(
+        gateway,
+        "autenticar_admin",
+        lambda username, password: False
+    )
+
+    response = client.post(
+        "/auth/token",
+        data={
+            "username": "admin",
+            "password": "incorrecta"
+        }
+    )
+
+    assert response.status_code == 401
+
+    assert response.json() == {
+        "detail":
+            "Usuario o contraseña incorrectos"
+    }
+
+
+# =========================================================
+# ENDPOINT PROTEGIDO SIN TOKEN
+# =========================================================
+
+def test_endpoint_admin_sin_token():
+
+    response = client.get(
+        "/auth/me"
+    )
+
+    assert response.status_code == 401
